@@ -1,0 +1,9 @@
+# Integração financeira
+
+O backend monta `/api/v1/financeiro` para administradores autenticados, com headers `x-organizacao-id` e `x-area-negocio-id`. O frontend usa as rotas reais de listagem, detalhe e criação de planos e assinaturas; geração, listagem e detalhe de mensalidades; resumo por período; e recebimento manual com `Idempotency-Key`. Todas as consultas financeiras incluem organização e área na chave de cache.
+
+Rotas integradas: `GET/POST /planos`, `GET /planos/:id`, `GET/POST /assinaturas`, `GET /assinaturas/:id`, `POST /assinaturas/:id/mensalidades`, `GET /mensalidades`, `GET /mensalidades/:id`, `POST /mensalidades/:id/recebimentos` e `GET /resumo`, todas sob o prefixo financeiro. A listagem de planos retorna somente os ativos; não há edição ou inativação por HTTP. Também não há endpoints de cancelamento de assinatura, exportação ou cobrança automática.
+
+O recebimento manual consulta o saldo no servidor antes do envio, exige confirmação explícita e bloqueia cliques repetidos. Falha de rede, timeout ou HTTP 5xx mantêm a mesma chave e o mesmo payload em memória; a interface exige consultar o estado persistido antes de repetir. Duas abas com estado diferente consultam novamente o saldo antes de enviar; o backend serializa a conta. O service worker não guarda respostas da API nem dados financeiros. Após recarregar o navegador, confira o histórico de pagamentos no servidor antes de iniciar outra operação.
+
+**Validação E2E:** em 11/11/2026, o test:e2e passou com 12 testes no ambiente local e banco exclusivo de testes. O fluxo financeiro registrou um recebimento manual, repetiu a mesma chave e payload, rejeitou a reutilização com payload diferente (409), bloqueou uma segunda aba desatualizada e verificou que permaneceu um único pagamento no banco. A fixture fictícia foi removida. Esse resultado não representa homologação de produção.

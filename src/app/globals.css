@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  --ink: #172d38;
+  --teal: #116b71;
+  --mist: #eff5f3;
+  --line: #dce6e5;
+  --amber: #c67b3e;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: #f6f9f8;
+  color: var(--ink);
+  font-family: 'Aptos', 'Segoe UI', Arial, sans-serif;
+}
+.app-main {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+.app-header {
+  padding-top: env(safe-area-inset-top);
+}
+.mobile-drawer {
+  padding-top: calc(1.25rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+select {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+::selection {
+  background: #b6d9d6;
+  color: #102b33;
+}
+.display {
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.035em;
+}
+.surface {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(26, 61, 69, 0.035);
+}
+.surface-dark {
+  background: #123c46;
+  border-color: #123c46;
+  color: #fff;
+}
+.field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #35505a;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.select-field {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #dce6e5;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 12px;
+  color: #172d38;
+  outline: none;
+}
+.select-field:focus-visible {
+  outline: 2px solid #116b71;
+  outline-offset: 2px;
+}
+.subtle-grid {
+  background-image:
+    linear-gradient(#e2ece9 1px, transparent 1px),
+    linear-gradient(90deg, #e2ece9 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

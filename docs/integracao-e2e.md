@@ -1,0 +1,9 @@
+# Integração ponta a ponta
+
+Execute `npm run test:e2e` na pasta do frontend. São necessários o backend na pasta irmã `controle-mensalidades-backend`, suas dependências instaladas, `.env.test` com `NODE_ENV=test`, `AMBIENTE_BANCO=teste`, `DATABASE_URL_TEST` exclusivo e `JWT_SECRET_TEST`, além do Chrome instalado para o Playwright. O script recusa um banco de testes igual ao `DATABASE_URL` de `.env`.
+
+O runner usa as portas locais 3340 (API) e 3010 (Next.js). Ele compila o frontend, cria organizações, áreas, usuários, clientes e profissionais fictícios no banco de testes, executa o Playwright, confirma no banco que o vínculo usuário–profissional não concedeu acesso clínico e remove os registros criados. A limpeza acontece também após uma falha de teste. Se ela falhar, os IDs ficam em `.e2e-fixture.json` para recuperação manual; o runner impede outra execução até a limpeza.
+
+Os testes cobrem login válido e inválido, sessão e expiração, autorização 403, proteção de rotas, troca de organização e área, isolamento dos resultados entre contextos, dashboard, clientes, profissionais, vínculo e desvinculação administrativa, leitura financeira, criação real de plano, assinatura e mensalidade, recebimento manual real, repetição idempotente, rejeição de payload diferente com a mesma chave (409), bloqueio da segunda aba desatualizada e confirmação de um único pagamento persistido, logout, layout mobile e PWA offline. O runner exige o banco exclusivo de testes e remove as fixtures ao final. O service worker mantém em cache apenas ícones e página offline; respostas autenticadas não entram em cache persistente. A rota intermediária `/api/*` devolve `Cache-Control: private, no-store`.
+
+O E2E local não equivale a homologação de produção. A instalabilidade e o comportamento em Android e iPhone reais ainda dependem de uma origem HTTPS e de testes nos dispositivos. Não há deploy neste procedimento.
