@@ -23,6 +23,11 @@ type SessionContextValue = {
   signOut: () => Promise<void>;
   selectOrganization: (id: string) => void;
   selectArea: (id: string) => void;
+  updateOwnMembership: (
+    userId: string,
+    organizationId: string,
+    membership: { perfil: string; ativo: boolean },
+  ) => void;
   retry: () => void;
 };
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -34,7 +39,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [areaId, setAreaId] = useState<string | null>(null);
-  const [availableAreas, setAvailableAreas] = useState<Area[]>([]);
+  const [areaContext, setAreaContext] = useState<{ organizationId: string; areas: Area[] } | null>(
+    null,
+  );
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -70,6 +77,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const organization =
     session?.organizacoes.find((org) => org.id === orgId) || session?.organizacoes[0] || null;
   const organizationId = organization?.id;
+  const availableAreas =
+    areaContext?.organizationId === organizationId ? (areaContext?.areas ?? []) : [];
   const area = availableAreas.find((item) => item.id === areaId) || availableAreas[0] || null;
 
   useEffect(() => {
@@ -78,13 +87,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     areas(organizationId)
       .then((data) => {
         if (active) {
-          setAvailableAreas(data);
+          setAreaContext({ organizationId, areas: data });
           setError(null);
         }
       })
       .catch((err) => {
         if (active) {
-          setAvailableAreas([]);
+          setAreaContext(null);
           setError(err instanceof Error ? err.message : 'Falha ao carregar áreas.');
         }
       });
@@ -97,7 +106,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     queryClient.clear();
     setOrgId(null);
     setAreaId(null);
-    setAvailableAreas([]);
+    setAreaContext(null);
   }, [queryClient]);
   useEffect(() => {
     const expired = () => {
@@ -124,7 +133,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!session?.organizacoes.some((org) => org.id === id)) return;
     queryClient.clear();
     setAreaId(null);
-    setAvailableAreas([]);
+    setAreaContext(null);
     setOrgId(id);
   };
   const selectArea = (id: string) => {
@@ -145,6 +154,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         signOut,
         selectOrganization,
         selectArea,
+        updateOwnMembership: (userId, organizationId, { perfil, ativo }) => {
+          setSession((current) => {
+            if (current?.usuario.id !== userId) return current;
+            return {
+              ...current,
+              organizacoes: current.organizacoes.flatMap((org) =>
+                org.id !== organizationId ? [org] : ativo ? [{ ...org, perfil }] : [],
+              ),
+            };
+          });
+        },
         retry: () => {
           setLoading(true);
           setAttempt((value) => value + 1);

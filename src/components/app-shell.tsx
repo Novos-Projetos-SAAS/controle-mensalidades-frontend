@@ -14,6 +14,8 @@ import {
   Orbit,
   Download,
   WalletCards,
+  ShieldCheck,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
@@ -26,6 +28,10 @@ const links = [
   { href: '/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/profissionais', label: 'Profissionais', icon: BriefcaseBusiness },
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
+];
+const settingsLinks = [
+  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck },
+  { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -58,7 +64,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!session) {
     return <div className="min-h-screen" />;
   }
-  const currentTitle = links.find((link) => link.href === path)?.label || 'Gestão';
+  const currentTitle =
+    [...links, ...settingsLinks].find((link) => link.href === path)?.label || 'Gestão';
   const nav = (
     <>
       <div className="mb-10 flex items-center gap-3 px-3">
@@ -94,6 +101,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
       </nav>
+      {organization?.perfil === 'ADMINISTRADOR' && (
+        <nav aria-label="Configurações" className="mt-6 mb-4 space-y-1">
+          <p className="px-3 text-[11px] font-bold tracking-[.16em] text-slate-400 uppercase">
+            Configurações
+          </p>
+          {settingsLinks.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setMenuOpen(false)}
+              aria-current={path === href ? 'page' : undefined}
+              className={cn(
+                'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-700',
+                path === href ? 'bg-teal-800 text-white hover:bg-teal-800' : 'text-slate-600',
+              )}
+            >
+              <Icon size={18} aria-hidden="true" className="shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
       <div className="mt-auto border-t border-slate-200 px-2 pt-6">
         <p className="px-1 text-xs leading-relaxed text-slate-500">
           Sua operação em um lugar claro e organizado.
@@ -126,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen lg:flex">
       <InstallHelp open={installOpen} onOpenChange={setInstallOpen} />
-      <aside className="hidden w-[252px] shrink-0 flex-col border-r border-slate-200 bg-white p-5 lg:fixed lg:inset-y-0 lg:flex">
+      <aside className="hidden w-[252px] shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white p-5 lg:fixed lg:inset-y-0 lg:flex">
         {nav}
       </aside>
       <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>

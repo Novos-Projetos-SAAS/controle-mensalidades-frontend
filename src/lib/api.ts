@@ -23,6 +23,10 @@ export type Cliente = Pessoa & {
   uf?: string | null;
   observacao?: string | null;
   aceite_whatsapp?: boolean;
+  aceite_whatsapp_em?: string | null;
+  origem_aceite_whatsapp?: string | null;
+  opt_out_whatsapp_em?: string | null;
+  origem_opt_out_whatsapp?: string | null;
 };
 export type Profissional = Pessoa & {
   conselho: string | null;
