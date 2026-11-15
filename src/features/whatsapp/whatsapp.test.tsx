@@ -1,11 +1,23 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import WhatsappRoute from '@/app/configuracoes/whatsapp/page';
 import { SessionProvider } from '@/features/auth/session';
 import { PeoplePage } from '@/features/people/people-page';
-import type { Configuration, Message, Task, Template } from './whatsapp-api';
+import type {
+  Configuration,
+  Message,
+  Task,
+  Template,
+  WhatsappOnboardingStatus,
+} from './whatsapp-api';
+import { openMetaEmbeddedSignup, prepareMetaEmbeddedSignup } from './whatsapp-meta-sdk';
 
+const metaSdkMock = vi.hoisted(() => ({ open: vi.fn(), prepare: vi.fn() }));
+vi.mock('./whatsapp-meta-sdk', () => ({
+  openMetaEmbeddedSignup: metaSdkMock.open,
+  prepareMetaEmbeddedSignup: metaSdkMock.prepare,
+}));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
   usePathname: () => '/configuracoes/whatsapp',
@@ -112,9 +124,89 @@ function setup(
   return calls;
 }
 const show = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
+const openSignup = vi.mocked(openMetaEmbeddedSignup);
+const prepareSignup = vi.mocked(prepareMetaEmbeddedSignup);
+const correlationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const authorizationCode = 'meta-authorization-code-once';
+const stateValue = 'one-time-state-value-longer-than-thirty-two-characters';
+const metaSdkConfiguration = {
+  appId: 'public-app-id',
+  configurationId: 'public-configuration-id',
+  graphApiVersion: 'v27.0',
+  permissions: ['whatsapp_business_management', 'whatsapp_business_messaging'],
+  responseType: 'code' as const,
+  overrideDefaultResponseType: true as const,
+  sessionInfoVersion: 3,
+  coexistenceEnabled: true,
+  featureType: 'whatsapp_business_app_onboarding' as const,
+};
+const onboardingStatus: WhatsappOnboardingStatus = {
+  correlacaoId: correlationId,
+  status: 'CONCLUIDO',
+  modoOnboarding: 'CLOUD_API',
+  erro: null,
+  expiraEm: new Date(Date.now() + 600000).toISOString(),
+  concluidoEm: when,
+  integracao: {
+    metaBusinessId: 'business-1',
+    whatsappAccountId: null,
+    messagingAccountId: 'waba-1',
+    wabaId: 'waba-1',
+    phoneNumberId: 'phone-1',
+    numeroExibido: '+55 11 99999-0000',
+    nomeNegocio: 'Empresa de teste',
+    autorizacao: 'AUTORIZADO',
+    registroNumero: 'PENDENTE',
+    webhook: 'ASSINADO',
+    templates: 'NAO_VALIDADO',
+    conexao: 'PENDENTE_AUTORIZACAO',
+    ativa: false,
+  },
+  requisitosPendentes: ['ATIVACAO_OPERACIONAL_NAO_LIBERADA'],
+  prontaParaEnvio: false,
+};
+function onboardingResponse(status: WhatsappOnboardingStatus = onboardingStatus, httpStatus = 200) {
+  return Response.json({ data: status }, { status: httpStatus });
+}
+function onboardingHandler(
+  status: WhatsappOnboardingStatus = onboardingStatus,
+  finish: (call: Request) => Response = () => onboardingResponse(status),
+  continueResponse: (call: Request) => Response = () => onboardingResponse(status),
+  expiration = new Date(Date.now() + 600000).toISOString(),
+) {
+  return ({ path, method, ...call }: Request) => {
+    if (path.endsWith('/onboarding/configuracao-sdk')) return json(metaSdkConfiguration);
+    if (path.endsWith('/onboarding/iniciar'))
+      return Response.json({
+        data: {
+          correlacaoId: correlationId,
+          state: stateValue,
+          expiraEm: expiration,
+          sdk: metaSdkConfiguration,
+        },
+      });
+    if (path.endsWith('/onboarding/concluir')) return finish({ path, method, ...call });
+    if (path.endsWith('/continuar')) return continueResponse({ path, method, ...call });
+    if (path === '/api/v1/whatsapp/onboarding/' + correlationId) return onboardingResponse(status);
+    return json([]);
+  };
+}
+async function startMockSignup(button = 'Conectar WhatsApp Business') {
+  show(button);
+  await waitFor(() => expect(prepareSignup).toHaveBeenCalledTimes(1));
+  expect(openSignup).not.toHaveBeenCalled();
+  show('Abrir autorização oficial da Meta');
+  await waitFor(() => expect(openSignup).toHaveBeenCalledTimes(1));
+  return openSignup.mock.calls[0][1];
+}
 
 beforeEach(() => {
   fetchMock.mockReset();
+  openSignup.mockReset();
+  prepareSignup.mockReset();
+  prepareSignup.mockResolvedValue(undefined);
+  window.sessionStorage.clear();
+  window.localStorage.clear();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('matchMedia', () => ({ matches: false }));
 });
@@ -132,7 +224,7 @@ describe('WhatsApp Business', () => {
       '/configuracoes/whatsapp',
     );
     expect(
-      screen.getByText('Conexão oficial com a Meta disponível em uma próxima etapa.'),
+      screen.getByText('Conecte e acompanhe a autorização, o registro e a preparação do número.'),
     ).toBeTruthy();
     expect(calls).toEqual([
       {
@@ -310,5 +402,236 @@ describe('WhatsApp Business', () => {
         body: { origem: 'Painel Orbe Gestão' },
       })),
     );
+  });
+
+  it('administrador autoriza com os endpoints da área e não expõe código ou state', async () => {
+    const calls = setup(onboardingHandler());
+    await screen.findByText('Não conectado');
+    const callbacks = await startMockSignup();
+    act(() => {
+      callbacks.onSession({
+        event: 'FINISH',
+        data: { waba_id: 'waba-1', phone_number_id: 'phone-1', business_id: 'business-1' },
+      });
+      callbacks.onLogin({ authResponse: { code: authorizationCode } });
+      callbacks.onLogin({ authResponse: { code: authorizationCode } });
+    });
+    await screen.findByText(
+      'Autorização confirmada pelo backend. A integração ainda não está pronta para envios.',
+    );
+    const finishCalls = calls.filter(({ path }) => path.endsWith('/onboarding/concluir'));
+    expect(finishCalls).toHaveLength(1);
+    expect(finishCalls[0]).toMatchObject({
+      method: 'POST',
+      org: 'org-a',
+      area: 'area-a',
+      body: {
+        resultado: 'AUTORIZADO',
+        correlacaoId: correlationId,
+        state: stateValue,
+        codigo: authorizationCode,
+        wabaId: 'waba-1',
+        phoneNumberId: 'phone-1',
+        businessId: 'business-1',
+        modoOnboarding: 'CLOUD_API',
+      },
+    });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.getItem('orbe:whatsapp:onboarding:org-a:area-a')).toBe(
+      correlationId,
+    );
+    expect(document.body.textContent).not.toContain(authorizationCode);
+    expect(document.body.textContent).not.toContain(stateValue);
+    expect(screen.getByText('Envio liberado:')).toBeTruthy();
+    expect(screen.getByText('Não', { selector: 'strong' })).toBeTruthy();
+  });
+
+  it('não habilita onboarding sem uma área ativa', async () => {
+    const calls = setup(() => json([]), { areas: [] });
+    await screen.findByText(
+      'Selecione uma área de negócio ativa e o escopo da área para conectar o WhatsApp.',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Conectar WhatsApp Business' }).hasAttribute('disabled'),
+    ).toBe(true);
+    expect(calls.some(({ path }) => path.includes('/onboarding/'))).toBe(false);
+  });
+
+  it('informa que a configuração Meta está ausente sem abrir o SDK', async () => {
+    const calls = setup(({ path }) =>
+      path.endsWith('/onboarding/configuracao-sdk')
+        ? Response.json({ codigo: 'META_EMBEDDED_SIGNUP_NAO_CONFIGURADO' }, { status: 503 })
+        : json([]),
+    );
+    await screen.findByText('Não conectado');
+    show('Conectar WhatsApp Business');
+    await screen.findByText(
+      'A conexão oficial com a Meta ainda não está configurada pelo administrador da plataforma.',
+    );
+    expect(openSignup).not.toHaveBeenCalled();
+    expect(calls.some(({ path }) => path.endsWith('/onboarding/iniciar'))).toBe(false);
+  });
+
+  it('cancela no backend quando o SDK não pode ser carregado', async () => {
+    prepareSignup.mockRejectedValueOnce(new Error('SDK unavailable'));
+    const calls = setup(onboardingHandler());
+    await screen.findByText('Não conectado');
+    show('Conectar WhatsApp Business');
+    await screen.findByText(/Não foi possível preparar o fluxo oficial da Meta/);
+    expect(calls.find(({ path }) => path.endsWith('/onboarding/concluir'))?.body).toEqual({
+      resultado: 'CANCELADO',
+      correlacaoId: correlationId,
+      state: stateValue,
+    });
+  });
+
+  it('trata o evento oficial de coexistência e registra o modo recebido da Meta', async () => {
+    const calls = setup(onboardingHandler());
+    await screen.findByText('Não conectado');
+    const callbacks = await startMockSignup();
+    act(() => {
+      callbacks.onLogin({ authResponse: { code: authorizationCode } });
+      callbacks.onSession({
+        event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',
+        data: { waba_id: 'waba-1', phone_number_id: 'phone-1' },
+      });
+    });
+    await screen.findByText(
+      'Autorização confirmada pelo backend. A integração ainda não está pronta para envios.',
+    );
+    expect(calls.find(({ path }) => path.endsWith('/onboarding/concluir'))?.body).toMatchObject({
+      modoOnboarding: 'COEXISTENCIA',
+    });
+  });
+
+  it('trata HTTP 202 como pendência e só solicita PIN quando o backend o exige', async () => {
+    const pending: WhatsappOnboardingStatus = {
+      ...onboardingStatus,
+      status: 'FALHA',
+      erro: 'PIN_REGISTRO_NECESSARIO',
+      requisitosPendentes: ['PIN_REGISTRO_NECESSARIO', 'ASSINATURA_DE_WEBHOOK_PENDENTE'],
+    };
+    const calls = setup(
+      onboardingHandler(
+        pending,
+        () => onboardingResponse(pending, 202),
+        () => onboardingResponse(pending, 202),
+      ),
+    );
+    await screen.findByText('Não conectado');
+    const callbacks = await startMockSignup();
+    act(() => {
+      callbacks.onSession({
+        event: 'FINISH',
+        data: { waba_id: 'waba-1', phone_number_id: 'phone-1' },
+      });
+      callbacks.onLogin({ authResponse: { code: authorizationCode } });
+    });
+    await screen.findByText('PIN de registro solicitado pelo backend');
+    expect(screen.getByText(/backend ainda está processando ou aguarda uma ação/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('PIN de registro de seis dígitos'), {
+      target: { value: '123456' },
+    });
+    show('Continuar configuração');
+    await waitFor(() => expect(calls.some(({ path }) => path.endsWith('/continuar'))).toBe(true));
+    expect(calls.find(({ path }) => path.endsWith('/continuar'))).toMatchObject({
+      method: 'POST',
+      org: 'org-a',
+      area: 'area-a',
+      body: { registrationPin: '123456' },
+    });
+    expect(window.sessionStorage.getItem('orbe:whatsapp:onboarding:org-a:area-a')).toBe(
+      correlationId,
+    );
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it('cancela a tentativa no escopo original quando a área muda', async () => {
+    const calls = setup(onboardingHandler());
+    await screen.findByText('Não conectado');
+    await startMockSignup();
+    fireEvent.change(screen.getByLabelText('Área de negócio'), { target: { value: 'area-b' } });
+    await waitFor(() =>
+      expect(
+        calls.some(
+          ({ path, body, area }) =>
+            path.endsWith('/onboarding/concluir') &&
+            area === 'area-a' &&
+            (body as { resultado?: string })?.resultado === 'CANCELADO',
+        ),
+      ).toBe(true),
+    );
+    expect((screen.getByLabelText('Área de negócio') as HTMLSelectElement).value).toBe('area-b');
+  });
+
+  it('não apresenta sucesso quando o backend rejeita as permissões Meta', async () => {
+    const calls = setup(
+      onboardingHandler(onboardingStatus, () =>
+        Response.json(
+          { codigo: 'META_PERMISSAO_NEGADA', mensagem: 'Token secreto não deve aparecer' },
+          { status: 403 },
+        ),
+      ),
+    );
+    await screen.findByText('Não conectado');
+    const callbacks = await startMockSignup();
+    act(() => {
+      callbacks.onSession({
+        event: 'FINISH',
+        data: { waba_id: 'waba-1', phone_number_id: 'phone-1' },
+      });
+      callbacks.onLogin({ authResponse: { code: authorizationCode } });
+    });
+    await screen.findByText(
+      'A Meta não autorizou as permissões necessárias. Revise a configuração e as aprovações do aplicativo.',
+    );
+    expect(document.body.textContent).not.toContain('Token secreto');
+    expect(calls.filter(({ path }) => path.endsWith('/onboarding/concluir'))).toHaveLength(1);
+  });
+
+  it('oferece reconexão para uma integração já autorizada', async () => {
+    const handler = onboardingHandler();
+    const calls = setup((request) =>
+      request.path.endsWith('/whatsapp/configuracoes')
+        ? json([{ ...config, situacao_autorizacao: 'AUTORIZADO' }])
+        : handler(request),
+    );
+    await screen.findByText('Academia A');
+    expect(screen.getByRole('button', { name: 'Reconectar WhatsApp Business' })).toBeTruthy();
+    await startMockSignup('Reconectar WhatsApp Business');
+    expect(calls.some(({ path }) => path.endsWith('/onboarding/iniciar'))).toBe(true);
+  });
+
+  it('envia cancelamento ao backend quando o responsável cancela na Meta', async () => {
+    const calls = setup(onboardingHandler());
+    await screen.findByText('Não conectado');
+    const callbacks = await startMockSignup();
+    act(() => callbacks.onSession({ event: 'CANCEL', data: {} }));
+    await screen.findByText('Onboarding cancelado na janela da Meta.');
+    expect(calls.find(({ path }) => path.endsWith('/onboarding/concluir'))?.body).toEqual({
+      resultado: 'CANCELADO',
+      correlacaoId: correlationId,
+      state: stateValue,
+    });
+  });
+
+  it('invalida a tentativa e envia cancelamento quando o state expira', async () => {
+    const expiresSoon = new Date(Date.now() + 25).toISOString();
+    const calls = setup(
+      onboardingHandler(
+        onboardingStatus,
+        () => onboardingResponse(onboardingStatus),
+        () => onboardingResponse(onboardingStatus),
+        expiresSoon,
+      ),
+    );
+    await screen.findByText('Não conectado');
+    show('Conectar WhatsApp Business');
+    await waitFor(() => expect(prepareSignup).toHaveBeenCalledTimes(1));
+    await screen.findByText('A tentativa de autorização expirou. Inicie um novo onboarding.');
+    expect(calls.find(({ path }) => path.endsWith('/onboarding/concluir'))?.body).toMatchObject({
+      resultado: 'CANCELADO',
+      correlacaoId: correlationId,
+    });
   });
 });

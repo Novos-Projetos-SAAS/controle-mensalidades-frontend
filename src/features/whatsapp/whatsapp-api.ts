@@ -1,4 +1,4 @@
-import { api, type Cliente } from '@/lib/api';
+import { api, apiWithStatus, type Cliente } from '@/lib/api';
 
 export type WhatsappContext = { organizacaoId: string; areaId: string };
 export type Configuration = {
@@ -22,6 +22,103 @@ export type ConfigurationInput = {
   nomeNegocio: string;
 };
 
+export type MetaSdkConfiguration = {
+  appId: string;
+  configurationId: string;
+  graphApiVersion: string;
+  permissions: string[];
+  responseType: 'code';
+  overrideDefaultResponseType: true;
+  sessionInfoVersion: number;
+  coexistenceEnabled: boolean;
+  featureType?: 'whatsapp_business_app_onboarding';
+};
+
+export type WhatsappOnboardingStart = {
+  correlacaoId: string;
+  state: string;
+  expiraEm: string;
+  sdk: MetaSdkConfiguration;
+};
+
+export type WhatsappOnboardingStatus = {
+  correlacaoId: string;
+  status: string;
+  modoOnboarding: 'CLOUD_API' | 'COEXISTENCIA' | null;
+  erro: string | null;
+  expiraEm: string;
+  concluidoEm: string | null;
+  integracao: null | {
+    metaBusinessId: string | null;
+    whatsappAccountId: string | null;
+    messagingAccountId: string | null;
+    wabaId: string | null;
+    phoneNumberId: string | null;
+    numeroExibido: string | null;
+    nomeNegocio: string | null;
+    autorizacao: string;
+    registroNumero: string;
+    webhook: string;
+    templates: string;
+    conexao: string;
+    ativa: false;
+  };
+  requisitosPendentes: string[];
+  prontaParaEnvio: false;
+};
+
+export type WhatsappOnboardingCallback =
+  | { resultado: 'CANCELADO'; correlacaoId: string; state: string }
+  | {
+      resultado: 'AUTORIZADO';
+      correlacaoId: string;
+      state: string;
+      codigo: string;
+      wabaId: string;
+      phoneNumberId: string;
+      businessId?: string;
+      modoOnboarding: 'CLOUD_API' | 'COEXISTENCIA';
+    };
+
+const onboardingPath = '/whatsapp/onboarding';
+export const getWhatsappSdkConfiguration = (context: WhatsappContext) =>
+  api<MetaSdkConfiguration>(onboardingPath + '/configuracao-sdk', {}, context);
+export const startWhatsappOnboarding = (context: WhatsappContext) =>
+  api<WhatsappOnboardingStart>(onboardingPath + '/iniciar', { method: 'POST' }, context);
+export const finishWhatsappOnboarding = (
+  context: WhatsappContext,
+  callback: WhatsappOnboardingCallback,
+) =>
+  apiWithStatus<WhatsappOnboardingStatus>(
+    onboardingPath + '/concluir',
+    { method: 'POST', body: JSON.stringify(callback) },
+    context,
+  );
+export const continueWhatsappOnboarding = (
+  context: WhatsappContext,
+  correlationId: string,
+  registrationPin?: string,
+) =>
+  apiWithStatus<WhatsappOnboardingStatus>(
+    onboardingPath + '/' + encodeURIComponent(correlationId) + '/continuar',
+    {
+      method: 'POST',
+      body: JSON.stringify(registrationPin ? { registrationPin } : {}),
+    },
+    context,
+  );
+export const getWhatsappOnboardingStatus = (
+  context: WhatsappContext,
+  correlationId: string,
+  signal?: AbortSignal,
+) =>
+  api<WhatsappOnboardingStatus>(
+    onboardingPath + '/' + encodeURIComponent(correlationId),
+    { signal },
+    context,
+  );
+export const onboardingKey = (context: WhatsappContext, correlationId: string) =>
+  ['whatsapp', context.organizacaoId, context.areaId, 'onboarding', correlationId] as const;
 export const reminderTypes = {
   'D-1': 'Cobrança na véspera',
   D0: 'Lembrete no vencimento',

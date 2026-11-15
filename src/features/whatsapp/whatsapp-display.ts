@@ -22,6 +22,23 @@ const labels: Record<string, string> = {
   MENSALIDADE_CANCELADA: 'Mensalidade cancelada.',
   RECONCILIACAO_FINANCEIRA_PENDENTE: 'Reconciliação financeira pendente.',
   TEMPLATE_META_NAO_APROVADO: 'Modelo ainda não aprovado pela Meta.',
+  CONCLUIDO: 'Autorizado',
+  CANCELADO: 'Cancelado',
+  EXPIRADO: 'Expirado',
+  INICIADO: 'Aguardando autorização',
+  PROCESSANDO: 'Processando',
+  FALHA: 'Falha no onboarding',
+  REGISTRADO: 'Registrado',
+  NAO_NECESSARIO: 'Não necessário',
+  ASSINADO: 'Assinado',
+  AUTORIZACAO_EM_ANDAMENTO: 'Autorização em andamento',
+  REGISTRO_DO_NUMERO_PENDENTE: 'Registro do número pendente',
+  PIN_REGISTRO_NECESSARIO: 'PIN de registro necessário',
+  ASSINATURA_DE_WEBHOOK_PENDENTE: 'Webhook pendente',
+  TEMPLATES_META_NAO_VALIDADO: 'Templates pendentes de validação',
+  ATIVACAO_OPERACIONAL_NAO_LIBERADA: 'Ativação operacional não liberada',
+  INICIAR_NOVO_ONBOARDING: 'Inicie um novo onboarding',
+  ONBOARDING_CANCELADO: 'Onboarding cancelado',
 };
 const formatter = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 

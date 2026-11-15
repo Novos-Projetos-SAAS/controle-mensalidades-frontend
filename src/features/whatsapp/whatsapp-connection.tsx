@@ -15,6 +15,7 @@ import {
   type Configuration,
 } from './whatsapp-api';
 import { displayDate, displayState, queryError } from './whatsapp-display';
+import { WhatsappOnboarding } from './whatsapp-onboarding';
 
 const fields = [
   { name: 'nomeNegocio', label: 'Nome do negócio', max: 150 },
@@ -73,6 +74,7 @@ function ConnectionDetails({
   const [scope, setScope] = useState(areaId ? 'area' : 'organization');
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState('');
+  const [onboardingActive, setOnboardingActive] = useState(false);
   const areaScope = scope === 'area';
   const target = areaScope ? (areaId ?? null) : null;
   const scoped = configurations.filter((config) => config.organizacao_id === orgId);
@@ -93,20 +95,27 @@ function ConnectionDetails({
         <div>
           <h2 className="text-xl font-semibold">Conexão</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Conexão oficial com a Meta disponível em uma próxima etapa.
+            Conecte e acompanhe a autorização, o registro e a preparação do número.
           </p>
         </div>
         <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-medium text-teal-900">
           {current ? displayState(current.situacao_conexao) : 'Não configurado'}
         </span>
       </div>
+      <WhatsappOnboarding
+        orgId={orgId}
+        areaId={areaId}
+        enabled={areaScope}
+        hasAuthorizedIntegration={exact?.situacao_autorizacao === 'AUTORIZADO'}
+        onAttemptingChange={setOnboardingActive}
+      />
       {areaId && (
         <label className="block max-w-sm">
           <span className="field-label">Escopo da configuração</span>
           <select
             className="select-field"
             value={scope}
-            disabled={editing}
+            disabled={editing || onboardingActive}
             onChange={(event) => {
               setScope(event.target.value);
               setNotice('');
