@@ -12,6 +12,7 @@ const backendURL = 'http://127.0.0.1:3340';
 const frontendURL = 'http://127.0.0.1:3010';
 const nextBin = path.join(frontend, 'node_modules', 'next', 'dist', 'bin', 'next');
 const playwrightBin = path.join(frontend, 'node_modules', '@playwright', 'test', 'cli.js');
+const selectedTests = process.argv.slice(2);
 
 function parseEnv(file) {
   return Object.fromEntries(
@@ -139,7 +140,7 @@ try {
   );
   await waitFor(`${frontendURL}/login`, webServer);
   process.stdout.write('API e frontend locais prontos. Executando Playwright...\n');
-  const testOutput = await run(process.execPath, [playwrightBin, 'test'], {
+  const testOutput = await run(process.execPath, [playwrightBin, 'test', ...selectedTests], {
     env: {
       ...process.env,
       E2E_BASE_URL: frontendURL,
@@ -157,16 +158,18 @@ try {
   process.stdout.write(
     `Testes E2E concluídos: ${testOutput.match(/\d+ passed[^\r\n]*/)?.[0] || 'sem resumo disponível'}.\n`,
   );
-  await run(
-    process.execPath,
-    ['--env-file=.env.test', '--import', 'tsx', fixtureScript, 'verify'],
-    {
-      cwd: backend,
-      env: { ...isolatedEnv, E2E_FIXTURE_IDS: JSON.stringify(fixtureIds) },
-      label: 'Verificação do vínculo',
-    },
-  );
-  process.stdout.write('Vínculo confirmado no banco, sem acesso clínico.\n');
+  if (selectedTests.length === 0) {
+    await run(
+      process.execPath,
+      ['--env-file=.env.test', '--import', 'tsx', fixtureScript, 'verify'],
+      {
+        cwd: backend,
+        env: { ...isolatedEnv, E2E_FIXTURE_IDS: JSON.stringify(fixtureIds) },
+        label: 'Verificação do vínculo',
+      },
+    );
+    process.stdout.write('Vínculo confirmado no banco, sem acesso clínico.\n');
+  }
 } catch (error) {
   failed = true;
   process.stderr.write(`${error instanceof Error ? error.message : 'Falha E2E.'}\n`);
