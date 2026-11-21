@@ -31,9 +31,24 @@ const links = [
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
 ];
 const settingsLinks = [
-  { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2, adminOnly: false },
-  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck, adminOnly: true },
-  { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle, adminOnly: true },
+  {
+    href: '/configuracoes/organizacoes',
+    label: 'Organizações e áreas',
+    icon: Building2,
+    adminOnly: false,
+  },
+  {
+    href: '/configuracoes/usuarios',
+    label: 'Usuários e Permissões',
+    icon: ShieldCheck,
+    adminOnly: true,
+  },
+  {
+    href: '/configuracoes/whatsapp',
+    label: 'WhatsApp Business',
+    icon: MessageCircle,
+    adminOnly: true,
+  },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -111,19 +126,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {settingsLinks
             .filter((link) => !link.adminOnly || organization.perfil === 'ADMINISTRADOR')
             .map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setMenuOpen(false)}
-              aria-current={path === href ? 'page' : undefined}
-              className={cn(
-                'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-700',
-                path === href ? 'bg-teal-800 text-white hover:bg-teal-800' : 'text-slate-600',
-              )}
-            >
-              <Icon size={18} aria-hidden="true" className="shrink-0" />
-              {label}
-            </Link>
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                aria-current={path === href ? 'page' : undefined}
+                className={cn(
+                  'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-700',
+                  path === href ? 'bg-teal-800 text-white hover:bg-teal-800' : 'text-slate-600',
+                )}
+              >
+                <Icon size={18} aria-hidden="true" className="shrink-0" />
+                {label}
+              </Link>
             ))}
         </nav>
       )}
