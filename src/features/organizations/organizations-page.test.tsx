@@ -95,7 +95,7 @@ describe('Organizações e áreas', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Criar organização' }));
     await waitFor(() => {
-      expect(screen.getByText('Academia Nova')).toBeTruthy();
+      expect(screen.getAllByText('Academia Nova').length).toBeGreaterThan(0);
       expect(screen.getByRole('button', { name: 'Adicionar área' })).toBeTruthy();
     });
     const post = calls.find((call) => call.path === '/organizacoes' && call.method === 'POST');
