@@ -147,11 +147,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!updated.organizacoes.some((org) => org.id === preferredOrganizationId)) {
       throw new Error('Organização criada, mas o novo acesso ainda não está disponível.');
     }
+    const refreshedAreas = await areas(preferredOrganizationId);
     queryClient.clear();
     setSession(updated);
     setOrgId(preferredOrganizationId);
-    setAreaId(preferredAreaId ?? null);
-    setAreaContext(null);
+    setAreaId(
+      preferredAreaId && refreshedAreas.some((area) => area.id === preferredAreaId)
+        ? preferredAreaId
+        : null,
+    );
+    setAreaContext({ organizationId: preferredOrganizationId, areas: refreshedAreas });
     setError(null);
   };
   return (
