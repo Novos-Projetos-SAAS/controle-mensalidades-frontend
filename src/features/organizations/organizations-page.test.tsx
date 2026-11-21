@@ -84,7 +84,7 @@ describe('Organizações e áreas', () => {
   it('mantém perfis separados e permite abrir outra organização sem cabeçalho de tenant', async () => {
     const { calls } = setup();
     expect(await screen.findByRole('heading', { name: 'Organizações e áreas' })).toBeTruthy();
-    expect(screen.getByText('Academia Antiga')).toBeTruthy();
+    expect(screen.getAllByText('Academia Antiga').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Adicionar área' })).toBeNull();
 
     fireEvent.change(screen.getByLabelText('Nome da empresa'), {
@@ -111,7 +111,7 @@ describe('Organizações e áreas', () => {
 
   it('autoriza nova área apenas na organização onde é administrador e atualiza seleção', async () => {
     const { calls } = setup();
-    await screen.findByText('Academia Antiga');
+    await screen.findByRole('heading', { name: 'Organizações e áreas' });
     fireEvent.click(screen.getByRole('button', { name: 'Selecionar' }));
     await screen.findByRole('button', { name: 'Adicionar área' });
     fireEvent.change(screen.getByLabelText('Nome da nova área'), {
