@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { api, type Area, type Cliente, type Profissional } from '@/lib/api';
+import { isValidCpf, maskCpf, maskPhone } from '@/lib/document-mask';
 
 const schema = z.object({
   nome: z.string().trim().min(1, 'Informe o nome.').max(150),
@@ -16,7 +17,8 @@ const schema = z.object({
     .refine(
       (value) => !value || value.replace(/\D/g, '').length === 11,
       'CPF deve ter 11 dígitos.',
-    ),
+    )
+    .refine((value) => !value || isValidCpf(value), 'CPF inválido. Confira os dígitos.'),
   email: z.union([z.email('E-mail inválido.'), z.literal('')]),
   telefone: z
     .string()
@@ -139,11 +141,21 @@ export function PersonForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="field-label">CPF</span>
-              <Input
-                inputMode="numeric"
-                placeholder="Somente números"
-                {...form.register('cpf')}
-                aria-invalid={!!form.formState.errors.cpf}
+              <Controller
+                name="cpf"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                    value={maskCpf(field.value)}
+                    onChange={(event) => field.onChange(maskCpf(event.target.value))}
+                    aria-invalid={!!form.formState.errors.cpf}
+                  />
+                )}
               />
               {form.formState.errors.cpf && (
                 <span role="alert" className="text-xs text-red-700">
@@ -153,10 +165,22 @@ export function PersonForm({
             </label>
             <label className="block">
               <span className="field-label">Telefone</span>
-              <Input
-                type="tel"
-                {...form.register('telefone')}
-                aria-invalid={!!form.formState.errors.telefone}
+              <Controller
+                name="telefone"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    maxLength={20}
+                    placeholder="(11) 99999-9999"
+                    value={maskPhone(field.value)}
+                    onChange={(event) => field.onChange(maskPhone(event.target.value))}
+                    aria-invalid={!!form.formState.errors.telefone}
+                  />
+                )}
               />
               {form.formState.errors.telefone && (
                 <span role="alert" className="text-xs text-red-700">
