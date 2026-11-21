@@ -23,6 +23,7 @@ type SessionContextValue = {
   signOut: () => Promise<void>;
   selectOrganization: (id: string) => void;
   selectArea: (id: string) => void;
+  refreshOrganizations: (organizationId: string, preferredAreaId?: string) => Promise<void>;
   updateOwnMembership: (
     userId: string,
     organizationId: string,
@@ -141,6 +142,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     queryClient.clear();
     setAreaId(id);
   };
+  const refreshOrganizations = async (preferredOrganizationId: string, preferredAreaId?: string) => {
+    const updated = await me();
+    if (!updated.organizacoes.some((org) => org.id === preferredOrganizationId)) {
+      throw new Error('Organização criada, mas o novo acesso ainda não está disponível.');
+    }
+    queryClient.clear();
+    setSession(updated);
+    setOrgId(preferredOrganizationId);
+    setAreaId(preferredAreaId ?? null);
+    setAreaContext(null);
+    setError(null);
+  };
   return (
     <SessionContext.Provider
       value={{
@@ -154,6 +167,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         signOut,
         selectOrganization,
         selectArea,
+        refreshOrganizations,
         updateOwnMembership: (userId, organizationId, { perfil, ativo }) => {
           setSession((current) => {
             if (current?.usuario.id !== userId) return current;

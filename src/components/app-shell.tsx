@@ -16,6 +16,7 @@ import {
   WalletCards,
   ShieldCheck,
   MessageCircle,
+  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
@@ -30,8 +31,9 @@ const links = [
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
 ];
 const settingsLinks = [
-  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck },
-  { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
+  { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2, adminOnly: false },
+  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck, adminOnly: true },
+  { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle, adminOnly: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -101,12 +103,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
       </nav>
-      {organization?.perfil === 'ADMINISTRADOR' && (
+      {organization && (
         <nav aria-label="Configurações" className="mt-6 mb-4 space-y-1">
           <p className="px-3 text-[11px] font-bold tracking-[.16em] text-slate-400 uppercase">
             Configurações
           </p>
-          {settingsLinks.map(({ href, label, icon: Icon }) => (
+          {settingsLinks
+            .filter((link) => !link.adminOnly || organization.perfil === 'ADMINISTRADOR')
+            .map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -120,7 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Icon size={18} aria-hidden="true" className="shrink-0" />
               {label}
             </Link>
-          ))}
+            ))}
         </nav>
       )}
       <div className="mt-auto border-t border-slate-200 px-2 pt-6">
