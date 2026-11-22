@@ -76,6 +76,10 @@ jobs:
           NODE_ENV: test
           AMBIENTE_BANCO: teste
         run: npm run migrate:latest -- --env test
+      - name: Criar modulo AGENDA somente como fixture local
+        working-directory: controle-mensalidades-backend
+        run: |
+          node --env-file=.env.test --import tsx --input-type=module -e "import connection from './src/database/connection.ts';try{await connection('modulos').insert({codigo:'AGENDA',nome:'Agenda',ativo:true}).onConflict('codigo').ignore()}finally{await connection.destroy()}"
       - name: Testar navegacao real, permissao e isolamento entre academias
         working-directory: controle-mensalidades-frontend
         env:
