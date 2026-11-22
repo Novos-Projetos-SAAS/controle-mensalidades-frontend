@@ -20,6 +20,7 @@ import {
 } from './finance-api';
 import { currentPeriod, money } from './finance-utils';
 import { FinanceIndicators } from './finance-indicators';
+import { downloadFinanceCsv } from './finance-export';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
 
@@ -434,6 +435,16 @@ function FinanceContent({ context }: { context: FinanceContext }) {
 
       {tab === 'mensalidades' && (
         <section role="tabpanel" className="mt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-600">
+              Exportação CSV: somente os resultados visíveis nesta página, conforme os filtros.
+            </p>
+            <Button type="button" variant="outline"
+              disabled={!visibleInvoices.length || invoices.isFetching}
+              onClick={() => downloadFinanceCsv(visibleInvoices)}>
+              Exportar página (CSV)
+            </Button>
+          </div>
           <div className="surface mb-4 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
             <label>
               <span className="field-label">Situação</span>
