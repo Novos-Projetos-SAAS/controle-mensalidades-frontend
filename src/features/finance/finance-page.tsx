@@ -19,6 +19,7 @@ import {
   type Pagina,
 } from './finance-api';
 import { currentPeriod, money } from './finance-utils';
+import { FinanceIndicators } from './finance-indicators';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
 
@@ -99,6 +100,9 @@ function FinanceContent({ context }: { context: FinanceContext }) {
 
   const summary = useFinanceQuery(context, ['resumo', period.inicio, period.fim], (signal) =>
     financeApi.resumo(context, period.inicio, period.fim, signal),
+  );
+  const indicators = useFinanceQuery(context, ['indicadores'], (signal) =>
+    financeApi.indicadores(context, signal),
   );
   const plans = useFinanceQuery(
     context,
@@ -222,6 +226,31 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           )
         )}
       </section>
+      {indicators.isPending ? (
+        <div className="mt-5"><LoadingState rows={2} /></div>
+      ) : indicators.isError ? (
+        <div className="mt-5">
+          <ErrorState message={indicators.error.message} retry={() => indicators.refetch()} />
+        </div>
+      ) : indicators.data ? (
+        <FinanceIndicators
+          data={indicators.data}
+          onOverdue={() => {
+            setTab('mensalidades');
+            setInvoiceFilters({ page: 1, status: 'VENCIDA' });
+            setInvoiceSearch('');
+          }}
+          onUpcoming={() => {
+            setTab('mensalidades');
+            setInvoiceFilters({
+              page: 1,
+              vencimentoDe: indicators.data.data_referencia,
+              vencimentoAte: indicators.data.janela_vencimentos_fim,
+            });
+            setInvoiceSearch('');
+          }}
+        />
+      ) : null}
       <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções financeiras">
           {(['mensalidades', 'assinaturas', 'planos'] as Tab[]).map((value) => (
