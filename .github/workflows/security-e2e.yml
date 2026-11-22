@@ -1,0 +1,87 @@
+name: E2E de seguranca e isolamento (PostgreSQL descartavel)
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  navegacao-segura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: e2e_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2e_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout frontend do PR
+        uses: actions/checkout@v4
+        with:
+          path: controle-mensalidades-frontend
+      - name: Checkout backend publico
+        uses: actions/checkout@v4
+        with:
+          repository: Novos-Projetos-SAAS/controle-mensalidades-backend
+          ref: main
+          path: controle-mensalidades-backend
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias do backend
+        working-directory: controle-mensalidades-backend
+        run: npm ci
+      - name: Instalar dependencias do frontend
+        working-directory: controle-mensalidades-frontend
+        run: npm ci
+      - name: Instalar navegador Chrome para Playwright
+        working-directory: controle-mensalidades-frontend
+        run: npx playwright install --with-deps chrome
+      - name: Criar ambiente descartavel e segredos efemeros
+        working-directory: controle-mensalidades-backend
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomBytes } from 'node:crypto';
+          import { writeFileSync } from 'node:fs';
+          const lines = [
+            'NODE_ENV=test',
+            'AMBIENTE_BANCO=teste',
+            'DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:5432/e2e_ci',
+            'DB_SSL=false',
+            'CPF_CRYPTO_MODE=transition',
+            'WHATSAPP_META_REAL_SEND_ENABLED=false',
+            'JWT_SECRET_TEST=' + randomBytes(32).toString('hex'),
+            'CPF_ENCRYPTION_KEY=' + randomBytes(32).toString('hex'),
+            'CPF_LOOKUP_KEY=' + randomBytes(32).toString('hex'),
+            'WHATSAPP_CREDENTIALS_ENCRYPTION_KEY=' + randomBytes(32).toString('base64'),
+          ];
+          writeFileSync('.env.test', lines.join('\n') + '\n', { mode: 0o600 });
+          writeFileSync('.env', '', { mode: 0o600 });
+          NODE
+      - name: Aplicar migrations somente no PostgreSQL descartavel
+        working-directory: controle-mensalidades-backend
+        env:
+          NODE_ENV: test
+          AMBIENTE_BANCO: teste
+        run: npm run migrate:latest -- --env test
+      - name: Testar navegacao real, permissao e isolamento entre academias
+        working-directory: controle-mensalidades-frontend
+        env:
+          CI: 'true'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run test:e2e
+      - name: Avisar sobre dados de teste e recursos locais
+        if: always()
+        run: echo 'E2E executado exclusivamente em PostgreSQL do job; nenhum Neon ou checkout real utilizado.'
