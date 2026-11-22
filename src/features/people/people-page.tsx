@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
 import { PersonForm } from '@/features/people/person-form';
 import { LinkUserDialog } from '@/features/people/link-user-dialog';
+import { WhatsappConsent } from '@/features/whatsapp/whatsapp-consent';
 import {
   api,
   cliente,
@@ -328,6 +329,14 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
                     </div>
                   )}
                 </dl>
+                {isClient && canManage && areaId && detail.data.areas.some(({ id }) => id === areaId) && (
+                  <WhatsappConsent
+                    key={`${orgId}:${areaId}:${detail.data.id}`}
+                    client={detail.data as Cliente}
+                    orgId={orgId}
+                    areaId={areaId}
+                  />
+                )}
                 <div className="mt-5 flex flex-wrap justify-end gap-2">
                   {canManage && (
                     <>

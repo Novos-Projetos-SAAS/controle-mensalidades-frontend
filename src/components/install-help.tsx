@@ -13,7 +13,7 @@ export function InstallHelp({
   useEffect(() => {
     const check = () =>
       setInstalled(
-        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.matchMedia?.('(display-mode: standalone)')?.matches ?? false) ||
           (navigator as Navigator & { standalone?: boolean }).standalone === true,
       );
     check();
