@@ -10,14 +10,17 @@ export const DialogDescription = DialogPrimitive.Description;
 export function DialogContent({
   children,
   className,
+  onCloseAutoFocus,
 }: {
   children: React.ReactNode;
   className?: string;
+  onCloseAutoFocus?: React.ComponentProps<typeof DialogPrimitive.Content>['onCloseAutoFocus'];
 }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/55" />
       <DialogPrimitive.Content
+        onCloseAutoFocus={onCloseAutoFocus}
         className={cn(
           'fixed inset-x-4 top-1/2 z-50 mx-auto max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] max-w-xl -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-2xl focus:outline-none',
           className,
