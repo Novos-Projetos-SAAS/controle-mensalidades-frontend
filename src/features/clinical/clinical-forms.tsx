@@ -2,6 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ function AvisoRascunho() {
 export function AnamneseForm({
   onValidated,
 }: { onValidated: (dados: AnamneseDraft) => void }) {
-  const form = useForm<AnamneseDraft>({
+  const form = useForm<z.input<typeof anamneseSchema>, unknown, AnamneseDraft>({
     resolver: zodResolver(anamneseSchema),
     defaultValues: {
       queixa_principal: '',
@@ -88,7 +89,7 @@ export function AnamneseForm({
 export function EvolucaoForm({
   onValidated,
 }: { onValidated: (dados: EvolucaoDraft) => void }) {
-  const form = useForm<EvolucaoDraft>({
+  const form = useForm<z.input<typeof evolucaoSchema>, unknown, EvolucaoDraft>({
     resolver: zodResolver(evolucaoSchema),
     defaultValues: {
       data_sessao: '',
@@ -143,7 +144,7 @@ export function EvolucaoForm({
 export function LaudoForm({
   onValidated,
 }: { onValidated: (dados: LaudoDraft) => void }) {
-  const form = useForm<LaudoDraft>({
+  const form = useForm<z.input<typeof laudoSchema>, unknown, LaudoDraft>({
     resolver: zodResolver(laudoSchema),
     defaultValues: {
       finalidade: '',
