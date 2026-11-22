@@ -28,6 +28,49 @@ describe('cadastro de cliente', () => {
     expect(await screen.findByText('Informe o nome.')).toBeTruthy();
     expect(vi.mocked(api)).not.toHaveBeenCalled();
   });
+  it('recusa CPF com dígitos verificadores incorretos antes de enviar', async () => {
+    render(<PersonForm {...props} />);
+    fireEvent.change(screen.getByRole('textbox', { name: /Nome completo/ }), {
+      target: { value: 'Cliente de Teste' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'CPF' }), {
+      target: { value: '12345678901' },
+    });
+    expect((screen.getByRole('textbox', { name: 'CPF' }) as HTMLInputElement).value).toBe(
+      '123.456.789-01',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar cadastro' }));
+    expect(await screen.findByText('CPF inválido. Confira os dígitos.')).toBeTruthy();
+    expect(vi.mocked(api)).not.toHaveBeenCalled();
+  });
+
+  it('exibe máscaras e envia CPF e telefone normalizados', async () => {
+    vi.mocked(api).mockResolvedValue({} as never);
+    render(<PersonForm {...props} />);
+    fireEvent.change(screen.getByRole('textbox', { name: /Nome completo/ }), {
+      target: { value: 'Cliente CPF Válido' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'CPF' }), {
+      target: { value: '52998224725' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Telefone' }), {
+      target: { value: '11999998888' },
+    });
+    expect((screen.getByRole('textbox', { name: 'CPF' }) as HTMLInputElement).value).toBe(
+      '529.982.247-25',
+    );
+    expect((screen.getByRole('textbox', { name: 'Telefone' }) as HTMLInputElement).value).toBe(
+      '(11) 99999-8888',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar cadastro' }));
+    await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledOnce());
+    const options = vi.mocked(api).mock.calls[0]?.[1];
+    expect(JSON.parse(String(options?.body))).toMatchObject({
+      cpf: '52998224725',
+      telefone: '11999998888',
+    });
+  });
+
   it('envia somente campos suportados com o contexto correto', async () => {
     vi.mocked(api).mockResolvedValue({} as never);
     render(<PersonForm {...props} />);

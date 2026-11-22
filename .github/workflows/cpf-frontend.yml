@@ -1,0 +1,33 @@
+name: Validacao frontend - CPF e mascaras
+
+on:
+  push:
+    branches:
+      - review/cpf-mascaras-isolado-20261121
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificacoes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Verificar tipos
+        run: npm run typecheck
+      - name: Executar testes unitarios
+        run: npm test
+      - name: Verificar lint
+        run: npm run lint
