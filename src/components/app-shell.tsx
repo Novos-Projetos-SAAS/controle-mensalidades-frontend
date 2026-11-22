@@ -15,6 +15,8 @@ import {
   Download,
   WalletCards,
   MessageCircle,
+  Building2,
+  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
@@ -28,6 +30,8 @@ const links = [
   { href: '/profissionais', label: 'Profissionais', icon: BriefcaseBusiness },
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
+  { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2 },
+  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -79,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </p>
       <nav aria-label="Navegação principal" className="space-y-1">
         {links
-          .filter((link) => !['/financeiro', '/configuracoes/whatsapp'].includes(link.href) || organization?.perfil === 'ADMINISTRADOR')
+          .filter((link) => !['/financeiro', '/configuracoes/whatsapp', '/configuracoes/usuarios'].includes(link.href) || organization?.perfil === 'ADMINISTRADOR')
           .map((link) => (
             <Link
               key={link.href}
