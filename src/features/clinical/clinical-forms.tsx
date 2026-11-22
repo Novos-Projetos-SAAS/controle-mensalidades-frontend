@@ -21,11 +21,13 @@ function Field({
   label, error, children,
 }: { label: string; error?: string; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      {children}
+    <div>
+      <label className="block">
+        <span className="field-label">{label}</span>
+        {children}
+      </label>
       {error && <span role="alert" className="mt-1 block text-xs text-red-700">{error}</span>}
-    </label>
+    </div>
   );
 }
 
