@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - review/organizacoes-usuarios-20261122
+      - main
   pull_request:
     branches:
       - main
