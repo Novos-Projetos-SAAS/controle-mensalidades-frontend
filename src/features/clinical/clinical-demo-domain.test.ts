@@ -58,7 +58,7 @@ describe('simulador isolado do prontuário da fisioterapeuta', () => {
       procedimentos_realizados: 'Mobilidade e treino funcional fictícios',
       data_sessao: '2026-11-22',
     });
-    expect(() => novaEntrada(proximo, paciente, 'EVOLUCAO', {}, 'sessao-2', momento)).toThrow();
+    expect(() => novaEntrada(proximo, paciente, 'EVOLUCAO', {} as typeof evolucao, 'sessao-2', momento)).toThrow();
   });
 
   it('preserva correção, finalização e adendo como versões sequenciais e distintas', () => {
