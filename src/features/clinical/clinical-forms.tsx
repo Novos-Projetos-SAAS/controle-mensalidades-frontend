@@ -33,18 +33,19 @@ function Field({
 
 const areaClasse = 'select-field min-h-28 py-3';
 
-function AvisoRascunho() {
+function AvisoRascunho({ demo = false }: { demo?: boolean }) {
   return (
     <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      Prévia de formulário clínico: os dados preenchidos aqui não são salvos. A publicação e a
-      assinatura só serão habilitadas após a homologação do acesso profissional.
+      {demo
+        ? 'MODO TREINAMENTO: somente pacientes fictícios. Os dados ficam na memória desta página e serão perdidos ao recarregar. Não é um prontuário real, nem gera assinatura.'
+        : 'Prévia de formulário clínico: os dados preenchidos aqui não são salvos. A publicação e a assinatura só serão habilitadas após a homologação do acesso profissional.'}
     </p>
   );
 }
 
 export function AnamneseForm({
-  onValidated,
-}: { onValidated: (dados: AnamneseDraft) => void }) {
+  onValidated, initialValues, demo = false,
+}: { onValidated: (dados: AnamneseDraft) => void; initialValues?: Partial<AnamneseDraft>; demo?: boolean }) {
   const form = useForm<z.input<typeof anamneseSchema>, unknown, AnamneseDraft>({
     resolver: zodResolver(anamneseSchema),
     defaultValues: {
@@ -55,13 +56,14 @@ export function AnamneseForm({
       limitacoes_funcionais: '',
       objetivos_paciente: '',
       avaliacao_inicial: '',
+      ...initialValues,
     },
   });
   const erros = form.formState.errors;
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Histórico e avaliação inicial</h2>
-      <AvisoRascunho />
+      <AvisoRascunho demo={demo} />
       <Field label="Queixa principal *" error={erros.queixa_principal?.message}>
         <textarea {...form.register('queixa_principal')} className={areaClasse} />
       </Field>
@@ -83,14 +85,14 @@ export function AnamneseForm({
       <Field label="Avaliação inicial do fisioterapeuta *" error={erros.avaliacao_inicial?.message}>
         <textarea {...form.register('avaliacao_inicial')} className={areaClasse} />
       </Field>
-      <Button type="submit">Validar rascunho de anamnese</Button>
+      <Button type="submit">{demo ? 'Salvar anamnese fictícia' : 'Validar rascunho de anamnese'}</Button>
     </form>
   );
 }
 
 export function EvolucaoForm({
-  onValidated,
-}: { onValidated: (dados: EvolucaoDraft) => void }) {
+  onValidated, initialValues, demo = false,
+}: { onValidated: (dados: EvolucaoDraft) => void; initialValues?: Partial<EvolucaoDraft>; demo?: boolean }) {
   const form = useForm<z.input<typeof evolucaoSchema>, unknown, EvolucaoDraft>({
     resolver: zodResolver(evolucaoSchema),
     defaultValues: {
@@ -103,13 +105,14 @@ export function EvolucaoForm({
       evolucao_clinica: '',
       orientacoes: '',
       plano_proxima_sessao: '',
+      ...initialValues,
     },
   });
   const erros = form.formState.errors;
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Evolução da sessão</h2>
-      <AvisoRascunho />
+      <AvisoRascunho demo={demo} />
       <Field label="Data da sessão *" error={erros.data_sessao?.message}>
         <Input type="date" {...form.register('data_sessao')} />
       </Field>
@@ -138,14 +141,14 @@ export function EvolucaoForm({
       <Field label="Conduta planejada para próxima sessão">
         <textarea {...form.register('plano_proxima_sessao')} className={areaClasse} />
       </Field>
-      <Button type="submit">Validar rascunho da evolução</Button>
+      <Button type="submit">{demo ? 'Salvar evolução fictícia' : 'Validar rascunho da evolução'}</Button>
     </form>
   );
 }
 
 export function LaudoForm({
-  onValidated,
-}: { onValidated: (dados: LaudoDraft) => void }) {
+  onValidated, initialValues, demo = false,
+}: { onValidated: (dados: LaudoDraft) => void; initialValues?: Partial<LaudoDraft>; demo?: boolean }) {
   const form = useForm<z.input<typeof laudoSchema>, unknown, LaudoDraft>({
     resolver: zodResolver(laudoSchema),
     defaultValues: {
@@ -155,13 +158,14 @@ export function LaudoForm({
       diagnostico_fisioterapeutico: '',
       conclusao: '',
       recomendacoes: '',
+      ...initialValues,
     },
   });
   const erros = form.formState.errors;
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Laudo fisioterapêutico</h2>
-      <AvisoRascunho />
+      <AvisoRascunho demo={demo} />
       <p className="text-sm text-slate-600">
         O conteúdo técnico e a conclusão devem ser elaborados e revisados pelo profissional
         responsável. Este formulário não emite documento assinado.
@@ -184,7 +188,7 @@ export function LaudoForm({
       <Field label="Recomendações">
         <textarea {...form.register('recomendacoes')} className={areaClasse} />
       </Field>
-      <Button type="submit">Validar rascunho de laudo</Button>
+      <Button type="submit">{demo ? 'Salvar laudo fictício' : 'Validar rascunho de laudo'}</Button>
     </form>
   );
 }

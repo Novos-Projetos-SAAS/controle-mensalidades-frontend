@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Building2,
   ShieldCheck,
+  ClipboardPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
@@ -28,6 +29,9 @@ const links = [
   { href: '/', label: 'Visão geral', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/profissionais', label: 'Profissionais', icon: BriefcaseBusiness },
+  ...(process.env.NODE_ENV === 'development'
+    ? [{ href: '/prontuario-demo', label: 'Prontuário (treinamento)', icon: ClipboardPlus }]
+    : []),
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
   { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2 },

@@ -1,3 +1,36 @@
+## Treinamento local navegavel — demonstracao da fisioterapeuta
+
+**Disponível no código da branch `feat/prontuario-simulador-fisioterapeuta-20261122`.**
+
+Com Node.js 22 e dependências instaladas no frontend:
+
+```powershell
+npm ci
+npm run dev
+```
+
+Abra **http://localhost:3000/prontuario-demo**. É uma rota de **desenvolvimento** (responde 404 em build de produção). Quando houver login no sistema de gestão, existe também atalho `Prontuário (treinamento)` no menu de desenvolvimento; o acesso direto à rota não depende de login nem do backend, pois todos os dados são inventados.
+
+### Roteiro de teste
+
+1. Entre como `Fisioterapeuta de demonstração` (identidade fictícia já exibida).
+2. Escolha `Paciente Exemplo A` e consulte o histórico de anamnese e de evolução, incluindo o campo **O que foi trabalhado**.
+3. Corrija a evolução e informe um motivo; confirme que as versões 1 e 2 ficam disponíveis.
+4. Finalize um registro **apenas na simulação** e inclua um adendo; confirme que não há alteração retroativa.
+5. Crie nova anamnese e novo laudo para `Paciente Exemplo C` e consulte as respectivas versões.
+6. Troque de paciente para comprovar que não aparecem os registros do outro paciente no estado local.
+7. Clique em `Reiniciar treinamento` ou recarregue a página para limpar as alterações.
+
+**ATENÇÃO:** nenhum dado é persistido. O estado fica apenas na memória React. Não há request de dados clínicos ao backend, banco, cookies clínicos, localStorage, sessionStorage, exportação, PDF, assinatura, RBAC de produção nem auditoria de leitura. **Nunca digite dados reais nesta simulação.** Ela valida somente a experiência visual e as regras de versões no cliente, não a segurança do prontuário de produção.
+
+### Critérios para o prontuário real
+
+Para disponibilizar a ficha real aos fisioterapeutas, ainda são indispensáveis: contrato HTTP validado, persistência PostgreSQL no ambiente isolado, autenticação e autorização clínica específicas por organização/área/profissional/paciente, auditoria de leitura/escrita com operações transacionais, proteção de versões, testes de autorização e revogação, gestão de versões finais/assinaturas, backup/restauração verificada, logs sem dados de saúde e homologação com o responsável pelo projeto.
+
+Backend #8 adiciona a evolução estruturada, mas continua draft; backend #11 prepara anamnese/laudo versionados e também continua draft. O simulador não contorna esses bloqueios.
+
+---
+
 # Frente clínica — prontuário da fisioterapia
 
 ## Situação de desenvolvimento (22/11/2026)
