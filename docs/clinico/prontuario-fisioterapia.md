@@ -61,17 +61,3 @@ As rotas de sessões clínicas do backend continuam intencionalmente fora de `/a
 1. Contratos protegidos e testes de leitura, anamnese, evolução por sessão, correção e laudo em PostgreSQL descartável.
 2. Persistência auditada e assinatura com RBAC clínico específico, revisão de segurança/backup e homologação isolada.
 3. Publicação controlada da tela no cadastro do paciente **apenas depois** da liberação do backend.
-
-
-## Prévia imprimível do laudo no simulador
-
-Após criar um **laudo fictício**, selecione-o na linha do tempo e utilize
-**Imprimir prévia fictícia**. A impressão do navegador mostra somente a
-versão escolhida, com campos organizados, identificação do profissional
-de demonstração e avisos permanentes de **SIMULAÇÃO · SEM VALIDADE**,
-**NÃO É DOCUMENTO ASSINADO**.
-
-A ação não emite laudo oficial, não cria PDF assinado, não envia
-dados ao servidor e não persiste documentos. O navegador pode permitir
-"Salvar como PDF" da prévia, que continuará marcada como fictícia.
-Não digitar pacientes reais no modo treinamento.
