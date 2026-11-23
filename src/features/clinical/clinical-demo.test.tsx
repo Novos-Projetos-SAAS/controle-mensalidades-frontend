@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ClinicalDemo } from './clinical-demo';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('tela de treinamento da fisioterapeuta', () => {
   it('exibe apenas paciente ficticio e histórico da sessão', async () => {
@@ -40,5 +40,35 @@ describe('tela de treinamento da fisioterapeuta', () => {
     fireEvent.click(screen.getByRole('button', { name: /Paciente Exemplo C/ }));
     expect(screen.getByText('Este paciente fictício ainda não possui registros. Use uma das ações acima para começar.')).toBeTruthy();
     expect(screen.queryByText('Evolução e conduta da sessão · v1')).toBeNull();
+  });
+  it('imprime somente previa de laudo ficticio com identificacao e marca d agua', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+    render(<ClinicalDemo />);
+    fireEvent.click(screen.getByRole('button', { name: 'Novo laudo' }));
+
+    const campos = [
+      ['Finalidade do laudo *', 'Avaliar ficticiamente'],
+      ['Fundamentação e avaliação *', 'Fundamentação simulada'],
+      ['Achados funcionais *', 'Achados apenas para teste'],
+      ['Diagnóstico fisioterapêutico *', 'Diagnóstico fictício'],
+      ['Conclusão profissional *', 'Conclusão sem valor clínico'],
+    ] as const;
+    for (const [label, value] of campos) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar laudo fictício' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Laudo fisioterapêutico (simulado) · v1')).toBeTruthy();
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Consultar registro' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Imprimir prévia do laudo fictício' }));
+    expect(printSpy).toHaveBeenCalledOnce();
+
+    const documento = document.getElementById('clinical-demo-print');
+    expect(documento?.textContent).toContain('SIMULAÇÃO · SEM VALIDADE');
+    expect(documento?.textContent).toContain('CREFITO FICTÍCIO');
+    expect(documento?.textContent).toContain('Conclusão sem valor clínico');
+    expect(documento?.textContent).toContain('NÃO É DOCUMENTO ASSINADO');
   });
 });
