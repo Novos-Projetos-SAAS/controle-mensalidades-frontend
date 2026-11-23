@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowLeft, ClipboardList, FileText, History,
-  Plus, RotateCcw, ShieldAlert, UserRound, Stethoscope,
+  Plus, RotateCcw, ShieldAlert, UserRound, Stethoscope, Printer,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { LaudoDemoPrint } from './clinical-demo-print';
 import {
   AnamneseForm, EvolucaoForm, LaudoForm, ClinicalTimeline,
 } from './clinical-forms';
@@ -377,12 +378,24 @@ export function ClinicalDemo() {
                     Finalizar na simulação
                   </Button>
                 )}
+                {selecionado.tipo === 'LAUDO' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => window.print()}
+                    aria-label="Imprimir prévia do laudo fictício"
+                  >
+                    <Printer size={16} aria-hidden /> Imprimir prévia fictícia
+                  </Button>
+                )}
               </div>
               {selecionado.tipo === 'LAUDO' && (
-                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
-                  LAUDO FICTÍCIO, SEM ASSINATURA, SEM VALIDADE PROFISSIONAL. Esta página não exporta
-                  nem emite laudos oficiais.
-                </p>
+                <>
+                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                    LAUDO FICTÍCIO, SEM ASSINATURA E SEM VALIDADE PROFISSIONAL.
+                    A impressão é somente uma prévia de treinamento, com marca d’água.
+                  </p>
+                  <LaudoDemoPrint paciente={paciente} versao={versaoExibida} />
+                </>
               )}
             </section>
           )}
