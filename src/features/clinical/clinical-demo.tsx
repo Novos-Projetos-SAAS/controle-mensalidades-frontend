@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowLeft, ClipboardList, FileText, History,
@@ -14,7 +14,7 @@ import {
 } from './clinical-forms';
 import {
   FISIOTERAPEUTA_DEMO, PACIENTES_DEMO, estadoInicialDemo,
-  novaEntrada, revisarEntrada, finalizarEntrada, ultimaVersao, resumoPaciente,
+  ultimaVersao, resumoPaciente,
   type DadosClinicos, type RegistroDemo, type TipoRegistro,
 } from './clinical-demo-domain';
 import {
@@ -64,6 +64,11 @@ function dataHora(value: string): string {
 
 export function ClinicalDemo() {
   const [estado, setEstado] = useState(estadoInicialDemo);
+  const [revisao, setRevisao] = useState(0);
+  const [carregando, setCarregando] = useState(true);
+  const [pronto, setPronto] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const trava = useRef(false);
   const [pacienteId, setPacienteId] = useState(PACIENTES_DEMO[0]!.id);
   const [busca, setBusca] = useState('');
   const [formulario, setFormulario] = useState<TipoRegistro | null>(null);
@@ -74,6 +79,74 @@ export function ClinicalDemo() {
   const [mensagem, setMensagem] = useState('');
   const [erro, setErro] = useState('');
   const [formularioSerial, setFormularioSerial] = useState(0);
+
+  // Fonte de verdade: arquivo no servidor local, não o estado do navegador.
+  async function carregar() {
+    const resposta = await fetch('/api/prontuario-demo', {
+      cache: 'no-store', credentials: 'same-origin',
+    });
+    if (!resposta.ok) throw new Error('A persistência local não está disponível.');
+    const snapshot = await resposta.json() as { estado: typeof estado; revisao: number };
+    setEstado(snapshot.estado);
+    setRevisao(snapshot.revisao);
+    setPronto(true);
+  }
+
+  useEffect(() => {
+    let ativo = true;
+    fetch('/api/prontuario-demo', { cache: 'no-store', credentials: 'same-origin' })
+      .then(async (resposta) => {
+        if (!resposta.ok) throw new Error('A persistência local não está disponível.');
+        return resposta.json() as Promise<{ estado: typeof estado; revisao: number }>;
+      })
+      .then((snapshot) => {
+        if (!ativo) return;
+        setEstado(snapshot.estado);
+        setRevisao(snapshot.revisao);
+        setPronto(true);
+      })
+      .catch(() => {
+        if (ativo) setErro('Não foi possível carregar o histórico do servidor. Nenhuma alteração será feita.');
+      })
+      .finally(() => { if (ativo) setCarregando(false); });
+    return () => { ativo = false; };
+  }, []);
+
+  async function executar(comando: Record<string, unknown>) {
+    if (!pronto || trava.current) return null;
+    trava.current = true;
+    setGravando(true);
+    setErro('');
+    setMensagem('');
+    try {
+      const resposta = await fetch('/api/prontuario-demo', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...comando, revisao }),
+      });
+      const dados = await resposta.json() as {
+        estado?: typeof estado; revisao?: number; registroId?: string | null;
+        mensagem?: string;
+      };
+      if (!resposta.ok) {
+        if (resposta.status === 409) await carregar();
+        throw new Error(dados.mensagem || 'Falha ao gravar os dados de demonstração.');
+      }
+      if (!dados.estado || dados.revisao === undefined) {
+        throw new Error('Resposta incompleta do armazenamento local.');
+      }
+      setEstado(dados.estado);
+      setRevisao(dados.revisao);
+      return dados;
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível salvar o registro fictício.');
+      return null;
+    } finally {
+      trava.current = false;
+      setGravando(false);
+    }
+  }
 
   const paciente = PACIENTES_DEMO.find((p) => p.id === pacienteId)!;
   const registros = estado.registros.filter((r) => r.pacienteId === pacienteId);
@@ -102,38 +175,36 @@ export function ClinicalDemo() {
     setFormularioSerial((n) => n + 1);
   }
 
-  function salvar(dados: DadosClinicos) {
-    if (!formulario) return;
-    try {
-      const agora = new Date().toISOString();
-      const id = editarId || crypto.randomUUID();
-      const proximo = editarId
-        ? revisarEntrada(estado, editarId, dados, justificativa, agora)
-        : novaEntrada(estado, pacienteId, formulario, dados, id, agora);
-      setEstado(proximo);
-      setSelecionadoId(id);
-      setVersaoSelecionada(null);
-      setFormulario(null);
-      setEditarId(null);
-      setErro('');
-      setMensagem(editarId
-        ? 'Nova versão adicionada ao histórico fictício. O registro anterior foi preservado.'
-        : 'Registro fictício criado nesta simulação.');
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível registrar a simulação.');
-    }
+  async function salvar(dados: DadosClinicos) {
+    if (!formulario || !pronto) return;
+    const registro = editarId ? estado.registros.find((r) => r.id === editarId) : null;
+    if (editarId && !registro) return;
+    const retorno = await executar(registro
+      ? {
+          acao: 'revisar', registroId: registro.id,
+          versaoEsperada: ultimaVersao(registro).numero,
+          dados, justificativa,
+        }
+      : { acao: 'criar', pacienteId, tipo: formulario, dados });
+    if (!retorno?.registroId) return;
+    setSelecionadoId(retorno.registroId);
+    setVersaoSelecionada(null);
+    setFormulario(null);
+    setEditarId(null);
+    setMensagem(registro
+      ? 'Correção ou adendo salvo no servidor local. Versões anteriores preservadas.'
+      : 'Registro fictício salvo no servidor local. Pode atualizar a página.');
   }
 
-  function finalizar() {
-    if (!selecionado) return;
-    try {
-      setEstado(finalizarEntrada(estado, selecionado.id, new Date().toISOString()));
-      setVersaoSelecionada(null);
-      setErro('');
-      setMensagem('Registro finalizado apenas na simulação. Não há assinatura nem validade documental.');
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não foi possível finalizar.');
-    }
+  async function finalizar() {
+    if (!selecionado || !pronto) return;
+    const retorno = await executar({
+      acao: 'finalizar', registroId: selecionado.id,
+      versaoEsperada: ultimaVersao(selecionado).numero,
+    });
+    if (!retorno) return;
+    setVersaoSelecionada(null);
+    setMensagem('Finalização fictícia persistida no servidor, sem assinatura profissional.');
   }
 
   function selecionarPaciente(id: string) {
@@ -146,10 +217,23 @@ export function ClinicalDemo() {
     setErro('');
   }
 
-  function limparDemo() {
-    setEstado(estadoInicialDemo());
+  async function limparDemo() {
+    if (!window.confirm('Reiniciar todos os registros fictícios salvos neste servidor?')) return;
+    const retorno = await executar({ acao: 'reiniciar' });
+    if (!retorno) return;
     selecionarPaciente(PACIENTES_DEMO[0]!.id);
-    setMensagem('Os dados do treinamento foram reiniciados.');
+    setMensagem('Treinamento reiniciado e salvo no servidor local.');
+  }
+
+  if (carregando) {
+    return <main role="status" className="mx-auto max-w-3xl p-8">Carregando registros fictícios do servidor local…</main>;
+  }
+  if (!pronto) {
+    return <main className="mx-auto max-w-3xl p-8" role="alert">
+      <h1 className="text-2xl font-bold">Prontuário de treinamento indisponível</h1>
+      <p className="mt-3">{erro}</p>
+      <Button className="mt-4" onClick={() => window.location.reload()}>Tentar novamente</Button>
+    </main>;
   }
 
   return (
@@ -178,9 +262,10 @@ export function ClinicalDemo() {
           <div>
             <strong className="block">SIMULAÇÃO — não inserir dados de pacientes reais</strong>
             <p className="mt-1">
-              Sem acesso ao banco, sem API clínica, sem assinatura e sem valor de laudo.
-              As alterações existem somente na memória desta página e desaparecem ao recarregar.
-              Esta tela só existe no servidor Next.js em desenvolvimento.
+              Simulação sem dados reais, sem banco clínico, sem assinatura ou validade profissional.
+              Os registros fictícios são salvos no disco do servidor Next.js de desenvolvimento,
+              inclusive após recarregar ou abrir outro navegador no mesmo servidor.
+              Não é o prontuário clínico definitivo. Nunca preencha dados reais.
             </p>
           </div>
         </div>
@@ -222,7 +307,7 @@ export function ClinicalDemo() {
             <p className="text-xs text-slate-600">Profissional autenticado nesta simulação</p>
             <p className="mt-1 text-sm font-semibold">{FISIOTERAPEUTA_DEMO.nome}</p>
             <p className="mt-1 text-xs text-slate-500">{FISIOTERAPEUTA_DEMO.registro}</p>
-            <Button variant="outline" className="mt-4 w-full" onClick={limparDemo}>
+            <Button variant="outline" className="mt-4 w-full" disabled={gravando} onClick={limparDemo}>
               <RotateCcw size={16} aria-hidden /> Reiniciar treinamento
             </Button>
           </div>
@@ -243,18 +328,19 @@ export function ClinicalDemo() {
               </span>
             </div>
             <div className="mt-6 flex flex-wrap gap-2" aria-label="Criar registro clínico">
-              <Button onClick={() => abrirNovo('ANAMNESE')}>
+              <Button disabled={gravando} onClick={() => abrirNovo('ANAMNESE')}>
                 <ClipboardList size={17} aria-hidden /> Nova anamnese
               </Button>
-              <Button onClick={() => abrirNovo('EVOLUCAO')} variant="secondary">
+              <Button disabled={gravando} onClick={() => abrirNovo('EVOLUCAO')} variant="secondary">
                 <Activity size={17} aria-hidden /> Nova evolução
               </Button>
-              <Button onClick={() => abrirNovo('LAUDO')} variant="outline">
+              <Button disabled={gravando} onClick={() => abrirNovo('LAUDO')} variant="outline">
                 <FileText size={17} aria-hidden /> Novo laudo
               </Button>
             </div>
           </section>
 
+          {gravando && <p role="status" className="text-sm text-teal-800">Salvando no servidor local…</p>}
           {mensagem && <div role="status" className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">{mensagem}</div>}
           {erro && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{erro}</div>}
 
@@ -369,12 +455,12 @@ export function ClinicalDemo() {
                 ))}
               </dl>
               <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-200 pt-5">
-                <Button onClick={() => abrirEdicao(selecionado)} variant="secondary">
+                <Button onClick={() => abrirEdicao(selecionado)} disabled={gravando} variant="secondary">
                   <Plus size={16} aria-hidden />
                   {versaoAtual.estado === 'FINALIZADO' ? 'Registrar adendo' : 'Corrigir registro'}
                 </Button>
                 {versaoAtual.estado === 'RASCUNHO' && (
-                  <Button onClick={finalizar} variant="outline">
+                  <Button onClick={finalizar} disabled={gravando} variant="outline">
                     Finalizar na simulação
                   </Button>
                 )}
