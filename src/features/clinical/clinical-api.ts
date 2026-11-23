@@ -185,16 +185,30 @@ export const clinicalApi = {
     pacienteId: string,
     profissionalId: string,
     dados: EvolucaoDraft,
+    dataHoraSessao: string,
   ) {
-    const { data_sessao, evolucao_clinica, ...campos } = dados;
+    if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(dataHoraSessao) ||
+      !Number.isFinite(Date.parse(dataHoraSessao))) {
+      throw new Error('Informe a data e a hora reais da sessão, com fuso horário.');
+    }
+    if (dataHoraSessao.slice(0, 10) !== dados.data_sessao) {
+      throw new Error('A data e a hora da sessão não correspondem ao formulário.');
+    }
+    const { evolucao_clinica, objetivo_sessao, avaliacao_previa, procedimentos_realizados, exercicios_parametros, resposta_paciente, orientacoes, plano_proxima_sessao } = dados;
     // A autoria e checada no servidor contra o usuario autenticado.
     // Nenhum campo estruturado da sessao e descartado.
     return api<ClinicalSessionDetail>('/sessoes-clinicas', json({
       cliente_id: identificar(pacienteId),
       profissional_id: identificar(profissionalId),
-      data_sessao: `${data_sessao}T12:00:00-03:00`,
+      data_sessao: dataHoraSessao,
       evolucao: evolucao_clinica,
-      ...campos,
+      objetivo_sessao,
+      ...(avaliacao_previa ? { avaliacao_previa } : {}),
+      procedimentos_realizados,
+      ...(exercicios_parametros ? { exercicios_parametros } : {}),
+      resposta_paciente,
+      ...(orientacoes ? { orientacoes } : {}),
+      ...(plano_proxima_sessao ? { plano_proxima_sessao } : {}),
     }), context(c));
   },
 
