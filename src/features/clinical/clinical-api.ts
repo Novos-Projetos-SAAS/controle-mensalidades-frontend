@@ -187,7 +187,7 @@ export const clinicalApi = {
     dados: EvolucaoDraft,
     dataHoraSessao: string,
   ) {
-    if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(dataHoraSessao) ||
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(dataHoraSessao) ||
       !Number.isFinite(Date.parse(dataHoraSessao))) {
       throw new Error('Informe a data e a hora reais da sessão, com fuso horário.');
     }
