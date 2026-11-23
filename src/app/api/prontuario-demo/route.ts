@@ -46,7 +46,11 @@ export async function POST(req: NextRequest) {
   // Bloqueio CSRF de chamadas originadas de páginas de terceiros.
   const origem = req.headers.get('origin');
   const host = req.headers.get('host');
-  if (!origem || !host || new URL(origem).host !== host) {
+  try {
+    if (!origem || !host || new URL(origem).host !== host) {
+      return resposta({ codigo: 'ORIGEM_NAO_AUTORIZADA' }, 403);
+    }
+  } catch {
     return resposta({ codigo: 'ORIGEM_NAO_AUTORIZADA' }, 403);
   }
 
