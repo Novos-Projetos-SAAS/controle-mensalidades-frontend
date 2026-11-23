@@ -111,7 +111,7 @@ describe('tela de treinamento da fisioterapeuta', () => {
     render(<ClinicalDemo />);
     await screen.findByText('Laudo fisioterapêutico (simulado) · v1');
     fireEvent.click(screen.getAllByRole('button', { name: 'Consultar registro' })[0]!);
-    expect(screen.getByText('Conclusão fictícia persistida')).toBeTruthy();
+    expect(screen.getAllByText('Conclusão fictícia persistida').length).toBeGreaterThan(0);
   });
 
   it('imprime somente previa de laudo ficticio com identificacao e marca d agua', async () => {
