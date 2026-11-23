@@ -132,5 +132,5 @@ test('falha de conexão mostra erro e permite tentar novamente', async ({ page }
   ).toBeVisible();
   await page.unroute('**/api/v1/whatsapp/configuracoes');
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
-  await expect(page.getByRole('heading', { name: 'Conexão' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Conexão' }).last()).toBeVisible();
 });
