@@ -61,9 +61,9 @@ describe('contrato de API do prontuario protegido', () => {
 
   it('não permite tentativa de URL injection, contexto vazio nem limite fora do contrato', async () => {
     const fetchMock = simularSucesso([]);
-    await expect(clinicalApi.timeline(ctx, `${paciente}/segredo`)).rejects.toThrow('Identificador');
-    await expect(clinicalApi.timeline(ctx, paciente, 101)).rejects.toThrow('Limite');
-    await expect(clinicalApi.timeline({ ...ctx, areaId: '' }, paciente)).rejects.toThrow('Selecione');
+    expect(() => clinicalApi.timeline(ctx, `${paciente}/segredo`)).toThrow('Identificador');
+    expect(() => clinicalApi.timeline(ctx, paciente, 101)).toThrow('Limite');
+    expect(() => clinicalApi.timeline({ ...ctx, areaId: '' }, paciente)).toThrow('Selecione');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -113,12 +113,12 @@ describe('contrato de API do prontuario protegido', () => {
 
   it('rejeita fuso ausente ou data divergente sem enviar ao servidor', async () => {
     const fetchMock = simularSucesso(null);
-    await expect(clinicalApi.criarEvolucao(
+    expect(() => clinicalApi.criarEvolucao(
       ctx, paciente, profissional, evolucao, '2026-11-20T14:30:00',
-    )).rejects.toThrow('hora reais');
-    await expect(clinicalApi.criarEvolucao(
+    )).toThrow('hora reais');
+    expect(() => clinicalApi.criarEvolucao(
       ctx, paciente, profissional, evolucao, '2026-11-21T14:30:00-03:00',
-    )).rejects.toThrow('não correspondem');
+    )).toThrow('não correspondem');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
