@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { ClinicalDemo } from './clinical-demo';
 import {
   estadoInicialDemo, finalizarEntrada, novaEntrada, revisarEntrada,
-  type DadosClinicos, type EstadoDemo,
+  type DadosClinicos, type EstadoDemo, type TipoRegistro,
 } from './clinical-demo-domain';
 
 let snapshot: { revisao: number; estado: EstadoDemo };
@@ -16,7 +16,16 @@ beforeEach(() => {
         status: 200, headers: { 'content-type': 'application/json' },
       });
     }
-    const comando = JSON.parse(String(init.body)) as Record<string, any>;
+    const comando = JSON.parse(String(init.body)) as {
+      acao: 'criar' | 'revisar' | 'finalizar' | 'reiniciar';
+      revisao: number;
+      pacienteId: string;
+      registroId?: string;
+      tipo: TipoRegistro;
+      dados: DadosClinicos;
+      justificativa: string;
+      versaoEsperada: number;
+    };
     if (snapshot.revisao !== comando.revisao) {
       return new Response(JSON.stringify({ mensagem: 'Dados alterados em outra aba.' }), {
         status: 409, headers: { 'content-type': 'application/json' },
