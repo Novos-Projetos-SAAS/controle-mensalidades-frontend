@@ -61,3 +61,48 @@ As rotas de sessões clínicas do backend continuam intencionalmente fora de `/a
 1. Contratos protegidos e testes de leitura, anamnese, evolução por sessão, correção e laudo em PostgreSQL descartável.
 2. Persistência auditada e assinatura com RBAC clínico específico, revisão de segurança/backup e homologação isolada.
 3. Publicação controlada da tela no cadastro do paciente **apenas depois** da liberação do backend.
+
+
+## Contratos HTTP preparatórios para a interface real
+
+O módulo `src/features/clinical/clinical-api.ts` define o cliente tipado
+para a futura integração ao backend, sem alterar a experiência do simulador
+e **sem habilitar chamadas a dados reais na interface atual**.
+
+| Operação futura | Rota |
+| --- | --- |
+| Linha do tempo sem textos clínicos | `GET /prontuario/pacientes/:id/historico?limite=50` |
+| Listagem de anamnese e laudos | `GET /documentos-clinicos/paciente/:id` |
+| Detalhes e versões | `GET /documentos-clinicos/:id` |
+| Nova anamnese ou laudo | `POST /documentos-clinicos` |
+| Correção e adendo versionados | `POST /documentos-clinicos/:id/revisoes` |
+| Finalização técnica sem assinatura | `POST /documentos-clinicos/:id/finalizar` |
+| Evolução por sessão | `POST /sessoes-clinicas` |
+| Consultar/corrigir sessão | `GET/PATCH /sessoes-clinicas/:id` |
+| Histórico de correções de sessão | `GET /sessoes-clinicas/:id/historico` |
+
+O cliente envia o cookie HTTP-only existente e os cabeçalhos de organização/área
+pelo helper `api`; o servidor continua sendo responsável por verificar
+identidade, vínculo ao paciente, escopo e autorização. O cliente valida IDs
+de caminho, rejeita limite de timeline fora do permitido, envia o histórico
+de revisões com controle de versão e não descarta procedimentos, resposta
+e parâmetros de exercícios.
+
+**O horário real da sessão deverá ser solicitado na interface definitiva**:
+a API requer `dataHoraSessao` em ISO 8601 com offset, que deve corresponder
+à data preenchida pelo profissional. Não se preenche um horário fictício
+automaticamente.
+
+### Permanecem pendentes
+
+- Tela clínica real integrada a esse cliente tipado, sob permissão profissional
+  específica e com fluxo de tratamento de erro de autorização.
+- Backend publicado exclusivamente depois de homologar segurança, perfis,
+  privilégios, logs, backups/restauração, controles de paciente e auditoria.
+- Consulta e impressão de laudos com identificação técnica, assinatura
+  profissional e integridade do documento.
+- Testes end-to-end de interface com PostgreSQL isolado e pacientes sintéticos.
+
+**Não usar este cliente para substituir o simulador**, nem liberar as rotas
+reais por configuração de frontend. Atualmente as rotas são intencionalmente
+bloqueadas no backend.
