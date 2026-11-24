@@ -9,7 +9,7 @@ import { useSession } from '@/features/auth/session';
 import { ApiError } from '@/lib/api';
 import {
   clinicalApi, type ClinicalTimelineItem, type ClinicalContext,
-  type ClinicalDocumentDetail,
+  type ClinicalDocumentDetail, type ClinicalSessionDetail,
 } from './clinical-api';
 import {
   AnamneseForm, EvolucaoForm, LaudoForm,
@@ -128,11 +128,14 @@ export function ClinicalWorkspace() {
     retry: false,
   });
 
-  const detalhe = useQuery({
+  const detalhe = useQuery<ClinicalDocumentDetail | ClinicalSessionDetail>({
     queryKey: ['clinico', 'detalhe', usuarioId, orgId, areaId, entrada?.tipo, entrada?.id],
-    queryFn: () => entrada?.tipo === 'EVOLUCAO'
-      ? clinicalApi.consultarEvolucao(contexto, entrada.id)
-      : clinicalApi.consultarDocumento(contexto, entrada!.id),
+    queryFn: async (): Promise<ClinicalDocumentDetail | ClinicalSessionDetail> => {
+      if (!entrada) throw new Error('Selecione um registro clínico autorizado.');
+      return entrada.tipo === 'EVOLUCAO'
+        ? clinicalApi.consultarEvolucao(contexto, entrada.id)
+        : clinicalApi.consultarDocumento(contexto, entrada.id);
+    },
     enabled: disponivel && !!pacienteId && !!entrada,
     retry: false,
   });
