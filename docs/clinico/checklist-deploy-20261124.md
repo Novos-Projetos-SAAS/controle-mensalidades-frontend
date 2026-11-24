@@ -68,6 +68,21 @@ Substitua `https://SEU-FRONTEND` e `https://SEU-BACKEND` pelos hosts reais.
 7. Validar login e logout apenas com conta de homologação, sem registrar
    credenciais/cookies nos logs ou screenshots.
 
+### Smoke test automatizado, sem credenciais
+
+Após subir os dois serviços, execute no frontend:
+
+```powershell
+npm run smoke:deploy -- --frontend=https://SEU-FRONTEND --backend=https://SEU-BACKEND
+```
+
+O comando realiza exclusivamente sete requisições **GET sem cookies**, confere
+health do backend, proxy, ausência de autenticação anônima, simulador 404 em
+produção e rotas clínicas bloqueadas. Não abre prontuários, não modifica Neon,
+não envia dados de pacientes e sai com código diferente de zero caso algum
+check falhe. As URLs devem ser somente origens HTTPS (sem /api, queries,
+tokens ou credenciais).
+
 ## 4. Critérios de parada
 
 Interromper o rollout se a API exigir desativar TLS, expuser `.env`,
