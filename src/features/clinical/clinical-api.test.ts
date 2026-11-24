@@ -45,6 +45,30 @@ function simularSucesso(dados: unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('contrato de API do prontuario protegido', () => {
+  it('obtém a identidade profissional no contexto autenticado, nunca de um ID informado', async () => {
+    const fetchMock = simularSucesso({ profissional_id: profissional });
+    await expect(clinicalApi.minhaIdentidade(ctx)).resolves.toEqual({ profissional_id: profissional });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/prontuario/identidade');
+    expect(init?.headers).toMatchObject({
+      'x-organizacao-id': org,
+      'x-area-negocio-id': area,
+    });
+    expect(init?.method).toBeUndefined();
+  });
+
+  it('consulta lista paginada de pacientes vinculados, sem usar cadastro geral', async () => {
+    const resposta = { items: [{ id: paciente, nome: 'Paciente fictício' }], pagina: 2, limite: 1, temMais: false };
+    const fetchMock = simularSucesso(resposta);
+    await expect(clinicalApi.pacientesVinculados(ctx, 2, 1)).resolves.toEqual(resposta);
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/prontuario/pacientes?pagina=2&limite=1');
+    expect(url).not.toContain('cpf');
+    expect(() => clinicalApi.pacientesVinculados(ctx, 0)).toThrow('Paginação');
+    expect(() => clinicalApi.pacientesVinculados(ctx, 1, 51)).toThrow('Paginação');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('consulta timeline com credenciais e contexto, sem texto clinico na URL', async () => {
     const fetchMock = simularSucesso([]);
     await expect(clinicalApi.timeline(ctx, paciente, 30)).resolves.toEqual([]);
