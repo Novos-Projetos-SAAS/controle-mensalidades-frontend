@@ -106,3 +106,51 @@ automaticamente.
 **Não usar este cliente para substituir o simulador**, nem liberar as rotas
 reais por configuração de frontend. Atualmente as rotas são intencionalmente
 bloqueadas no backend.
+
+
+## Persistência entre sessões do navegador — simulador local (novembro de 2026)
+
+O simulador `http://localhost:3000/prontuario-demo` agora deve carregar e gravar
+os registros de **pacientes inteiramente fictícios** em uma API de desenvolvimento
+(`GET/POST /api/prontuario-demo`). A persistência usa o arquivo **no servidor
+local Next.js**:
+
+```
+controle-mensalidades-frontend/.local/prontuario-demo.json
+```
+
+A pasta `.local/` é ignorada pelo Git. A API funciona apenas com
+`NODE_ENV=development` e domínio `localhost`/`127.0.0.1`; não funciona
+em `next start`, produção, Vercel ou via domínio público. Não acessa Neon
+e não cria registros reais no banco. A funcionalidade não depende de login,
+portanto **jamais use pacientes reais, CPF, laudos reais ou dados de saúde
+verdadeiros nesta simulação**.
+
+### Testar na prática
+
+1. No frontend, faça `git checkout main`, `git pull origin main`,
+   `npm ci`, `npm run dev`.
+2. Abra `http://localhost:3000/prontuario-demo`, escolha um dos
+   três pacientes fictícios e crie uma evolução ou laudo.
+3. Atualize com F5, feche o navegador e abra novamente: o conteúdo
+   salvo deve continuar na linha do tempo, inclusive suas versões antigas.
+4. Abra uma segunda aba no mesmo servidor e faça uma correção: se a
+   primeira aba tentar sobrescrever uma versão desatualizada, o sistema
+   devolve erro de conflito e recarrega o estado mais recente.
+5. Clique em `Reiniciar treinamento` e confirme para apagar as alterações
+   fictícias, restaurando os exemplos iniciais no arquivo do servidor.
+
+**Limites:** os registros persistem enquanto o arquivo permanecer no mesmo
+computador/servidor. Não sincronizam com outro PC, Neon nem produção. O arquivo
+não substitui banco de dados, criptografia em repouso, controles clínicos de
+acesso, backups, política LGPD ou assinatura de laudos. Em outro computador,
+será outro ambiente de treinamento. **O prontuário REAL ainda precisa do
+backend PostgreSQL com autorização profissional, vínculo com pacientes,
+auditoria e homologação de segurança.**
+
+Em falha de leitura/gravação, o simulador exibe erro em vez de fingir que
+salvou apenas na memória. A API recebe comandos de criação, revisão,
+finalização e reset, nunca o arquivo inteiro fornecido pelo navegador.
+A gravação usa arquivo temporário e renomeação atômica. O controle de revisão
+impede sobrescrita entre abas dentro de uma instância do servidor de
+desenvolvimento (não é um mecanismo distribuído entre múltiplos processos).

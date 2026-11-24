@@ -1,12 +1,60 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ClinicalDemo } from './clinical-demo';
+import {
+  estadoInicialDemo, finalizarEntrada, novaEntrada, revisarEntrada,
+  type DadosClinicos, type EstadoDemo, type TipoRegistro,
+} from './clinical-demo-domain';
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+let snapshot: { revisao: number; estado: EstadoDemo };
+
+beforeEach(() => {
+  snapshot = { revisao: 0, estado: estadoInicialDemo() };
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method !== 'POST') {
+      return new Response(JSON.stringify(snapshot), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    }
+    const comando = JSON.parse(String(init.body)) as {
+      acao: 'criar' | 'revisar' | 'finalizar' | 'reiniciar';
+      revisao: number;
+      pacienteId: string;
+      registroId?: string;
+      tipo: TipoRegistro;
+      dados: DadosClinicos;
+      justificativa: string;
+      versaoEsperada: number;
+    };
+    if (snapshot.revisao !== comando.revisao) {
+      return new Response(JSON.stringify({ mensagem: 'Dados alterados em outra aba.' }), {
+        status: 409, headers: { 'content-type': 'application/json' },
+      });
+    }
+    const id = comando.registroId || 'novo-' + (snapshot.revisao + 1);
+    const agora = new Date().toISOString();
+    if (comando.acao === 'criar') {
+      snapshot.estado = novaEntrada(snapshot.estado, comando.pacienteId, comando.tipo, comando.dados as DadosClinicos, id, agora);
+    } else if (comando.acao === 'revisar') {
+      snapshot.estado = revisarEntrada(snapshot.estado, id, comando.dados as DadosClinicos, comando.justificativa, agora);
+    } else if (comando.acao === 'finalizar') {
+      snapshot.estado = finalizarEntrada(snapshot.estado, id, agora);
+    } else {
+      snapshot.estado = estadoInicialDemo();
+    }
+    snapshot.revisao++;
+    return new Response(JSON.stringify({
+      ...snapshot, registroId: comando.acao === 'reiniciar' ? null : id,
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }));
+});
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('tela de treinamento da fisioterapeuta', () => {
   it('exibe apenas paciente ficticio e histórico da sessão', async () => {
     render(<ClinicalDemo />);
+    await screen.findByText('Prontuário do paciente');
     expect(screen.getByText('Prontuário do paciente')).toBeTruthy();
     expect(screen.getByText('SIMULAÇÃO — não inserir dados de pacientes reais')).toBeTruthy();
     expect(screen.getAllByText('Paciente Exemplo A').length).toBeGreaterThan(0);
@@ -18,6 +66,7 @@ describe('tela de treinamento da fisioterapeuta', () => {
 
   it('preserva versão anterior depois de corrigir registro fictício', async () => {
     render(<ClinicalDemo />);
+    await screen.findByText('Prontuário do paciente');
     fireEvent.click(screen.getAllByRole('button', { name: 'Consultar registro' })[0]!);
     fireEvent.click(screen.getByRole('button', { name: 'Corrigir registro' }));
     fireEvent.change(screen.getByLabelText('Motivo da revisão'), {
@@ -35,15 +84,40 @@ describe('tela de treinamento da fisioterapeuta', () => {
     expect(screen.getByText('Treino de marcha, mobilidade e exercícios funcionais (dados fictícios).')).toBeTruthy();
   });
 
-  it('trocar paciente nao mistura historicos', () => {
+  it('trocar paciente nao mistura historicos', async () => {
     render(<ClinicalDemo />);
+    await screen.findByText('Prontuário do paciente');
     fireEvent.click(screen.getByRole('button', { name: /Paciente Exemplo C/ }));
     expect(screen.getByText('Este paciente fictício ainda não possui registros. Use uma das ações acima para começar.')).toBeTruthy();
     expect(screen.queryByText('Evolução e conduta da sessão · v1')).toBeNull();
   });
+  it('continua mostrando o registro salvo após desmontar e recarregar a tela', async () => {
+    const view = render(<ClinicalDemo />);
+    await screen.findByText('Prontuário do paciente');
+    fireEvent.click(screen.getByRole('button', { name: 'Novo laudo' }));
+    for (const [label, value] of [
+      ['Finalidade do laudo *', 'Laudo de treino'],
+      ['Fundamentação e avaliação *', 'Fundamentação fictícia'],
+      ['Achados funcionais *', 'Achados fictícios'],
+      ['Diagnóstico fisioterapêutico *', 'Diagnóstico fictício'],
+      ['Conclusão profissional *', 'Conclusão fictícia persistida'],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar laudo fictício' }));
+    await screen.findByText('Laudo fisioterapêutico (simulado) · v1');
+
+    view.unmount();
+    render(<ClinicalDemo />);
+    await screen.findByText('Laudo fisioterapêutico (simulado) · v1');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Consultar registro' })[0]!);
+    expect(screen.getAllByText('Conclusão fictícia persistida').length).toBeGreaterThan(0);
+  });
+
   it('imprime somente previa de laudo ficticio com identificacao e marca d agua', async () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
     render(<ClinicalDemo />);
+    await screen.findByText('Prontuário do paciente');
     fireEvent.click(screen.getByRole('button', { name: 'Novo laudo' }));
 
     const campos = [

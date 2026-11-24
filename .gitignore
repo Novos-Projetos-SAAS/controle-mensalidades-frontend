@@ -31,3 +31,6 @@ Thumbs.db
 *.db
 *.sqlite*
 *.bak
+
+# Dados exclusivamente ficticios do simulador persistido no servidor local
+.local/
