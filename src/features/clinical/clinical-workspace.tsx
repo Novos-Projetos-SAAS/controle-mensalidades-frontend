@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ClipboardList, FileText, LockKeyhole, RefreshCw, UserRound } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
@@ -79,6 +79,27 @@ export function ClinicalWorkspace() {
   const orgId = organization?.id ?? '';
   const areaId = area?.id ?? '';
   const usuarioId = session?.usuario.id ?? '';
+  // Remontar a área clínica ao trocar usuário/tenant/área descarta imediatamente
+  // detalhes anteriores, sem setState em efeito ou cache visual de outro escopo.
+  return (
+    <ClinicalWorkspaceContext
+      key={`${usuarioId}:${orgId}:${areaId}`}
+      usuarioId={usuarioId}
+      orgId={orgId}
+      areaId={areaId}
+      areaNome={area?.nome ?? ''}
+    />
+  );
+}
+
+function ClinicalWorkspaceContext({
+  orgId, areaId, usuarioId, areaNome,
+}: {
+  orgId: string;
+  areaId: string;
+  usuarioId: string;
+  areaNome: string;
+}) {
   const contexto: ClinicalContext = { organizacaoId: orgId, areaId };
   const disponivel = !!orgId && !!areaId && !!usuarioId;
 
@@ -96,16 +117,6 @@ export function ClinicalWorkspace() {
   const [mensagem, setMensagem] = useState('');
   const [erro, setErro] = useState('');
   const trava = useRef(false);
-
-  useEffect(() => {
-    setPagina(1);
-    setPacienteId(null);
-    setEntrada(null);
-    setFormulario(null);
-    setVersaoExibida(null);
-    setErro('');
-    setMensagem('');
-  }, [orgId, areaId, usuarioId]);
 
   const pacientes = useQuery({
     queryKey: ['clinico', 'pacientes', usuarioId, orgId, areaId, pagina],
@@ -253,7 +264,7 @@ export function ClinicalWorkspace() {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="display text-3xl">Prontuário fisioterapêutico</h1>
-          <p className="mt-1 text-sm text-slate-600">Pacientes autorizados · {area?.nome || 'Selecione uma área'}</p>
+          <p className="mt-1 text-sm text-slate-600">Pacientes autorizados · {areaNome || 'Selecione uma área'}</p>
         </div>
         <Button variant="outline" disabled={!disponivel || pacientes.isFetching} onClick={() => {
           void queryClient.invalidateQueries({ queryKey: ['clinico'] });
