@@ -3,6 +3,15 @@ import type { AnamneseDraft, LaudoDraft, EvolucaoDraft } from './clinical-contra
 
 // Contrato tipado para o futuro prontuario real. Nao aciona nada sozinho:
 // as rotas correspondentes continuam bloqueadas no backend ate a homologacao.
+export type PacienteClinicoVinculado = { id: string; nome: string };
+export type ListagemPacientesClinicos = {
+  items: PacienteClinicoVinculado[];
+  pagina: number;
+  limite: number;
+  temMais: boolean;
+};
+export type MinhaIdentidadeClinica = { profissional_id: string };
+
 export type ClinicalContext = {
   organizacaoId: string;
   areaId: string;
@@ -115,6 +124,24 @@ function context(c: ClinicalContext) {
 }
 
 export const clinicalApi = {
+  // O backend deriva identidade profissional da sessão autenticada;
+  // o frontend nunca pede que um usuário informe ou escolha seu próprio ID.
+  minhaIdentidade(c: ClinicalContext) {
+    return api<MinhaIdentidadeClinica>('/prontuario/identidade', {}, context(c));
+  },
+
+  pacientesVinculados(c: ClinicalContext, pagina = 1, limite = 20) {
+    if (!Number.isInteger(pagina) || pagina < 1 || pagina > 100 ||
+        !Number.isInteger(limite) || limite < 1 || limite > 50) {
+      throw new Error('Paginação clínica inválida.');
+    }
+    return api<ListagemPacientesClinicos>(
+      `/prontuario/pacientes?pagina=${pagina}&limite=${limite}`,
+      {},
+      context(c),
+    );
+  },
+
   // Apenas metadados; cada detalhe exige outra autorização e auditoria.
   timeline(c: ClinicalContext, pacienteId: string, limite = 50) {
     if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
