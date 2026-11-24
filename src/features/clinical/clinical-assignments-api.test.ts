@@ -10,7 +10,7 @@ const profissional = '44444444-4444-4444-8444-444444444444';
 const vinculo = '55555555-5555-4555-8555-555555555555';
 
 const stub = (data: unknown, status = 200) => {
-  const busca = vi.fn(async () => new Response(
+  const busca = vi.fn(async (_url: string, _options?: RequestInit) => new Response(
     JSON.stringify(status < 400 ? { data } : data),
     { status, headers: { 'content-type': 'application/json' } },
   ));
