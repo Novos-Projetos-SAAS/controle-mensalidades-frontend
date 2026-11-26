@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NextRequest } from 'next/server';
-import { GET } from './route';
+import { NextRequest } from 'next/server';
+import { GET, POST } from './route';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -21,4 +21,46 @@ describe('API intermediária em hospedagem', () => {
     expect((await GET(request, context)).status).toBe(503);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('bloqueia POST clínico de origem cruzada antes de encaminhar cookies', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('BACKEND_URL', 'http://localhost:3333');
+    const pedido = new NextRequest('http://localhost:3000/api/v1/documentos-clinicos', {
+      method: 'POST',
+      headers: {
+        host: 'localhost:3000',
+        origin: 'https://site-externo.example',
+        cookie: 'token=NAO_ENVIAR',
+        'sec-fetch-site': 'cross-site',
+      },
+      body: '{}',
+    });
+    const r = await POST(pedido, { params: Promise.resolve({ path: ['v1', 'documentos-clinicos'] }) });
+    expect(r.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('encaminha POST clínico autorizado de mesma origem sem cache', async () => {
+    vi.stubEnv('BACKEND_URL', 'http://localhost:3333');
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ data: { id: 'registro-teste' } }), {
+        status: 201, headers: { 'content-type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const pedido = new NextRequest('http://localhost:3000/api/v1/documentos-clinicos', {
+      method: 'POST',
+      headers: {
+        host: 'localhost:3000',
+        origin: 'http://localhost:3000',
+        'sec-fetch-site': 'same-origin',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ tipo: 'ANAMNESE' }),
+    });
+    const r = await POST(pedido, { params: Promise.resolve({ path: ['v1', 'documentos-clinicos'] }) });
+    expect(r.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
 });
