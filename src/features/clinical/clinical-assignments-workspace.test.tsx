@@ -1,0 +1,68 @@
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+import { ClinicalAssignmentsWorkspace } from './clinical-assignments-workspace';
+
+const ids = vi.hoisted(() => ({
+  org: '11111111-1111-4111-8111-111111111111',
+  area: '22222222-2222-4222-8222-222222222222',
+  paciente: '33333333-3333-4333-8333-333333333333',
+  profissional: '44444444-4444-4444-8444-444444444444',
+  vinculo: '55555555-5555-4555-8555-555555555555',
+}));
+const mocks = vi.hoisted(() => ({
+  listar: vi.fn(), conceder: vi.fn(), revogar: vi.fn(),
+  clientes: vi.fn(), profissionais: vi.fn(),
+}));
+vi.mock('@/features/auth/session', () => ({
+  useSession: () => ({
+    organization: { id: ids.org, nome: 'Unidade fictícia', perfil: 'ADMINISTRADOR' },
+    area: { id: ids.area, nome: 'Fisioterapia' },
+    session: { usuario: { id: 'usuario-admin' } },
+  }),
+}));
+vi.mock('@/components/app-shell', () => ({
+  AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('@/lib/api', () => ({
+  clientes: mocks.clientes, profissionais: mocks.profissionais,
+}));
+vi.mock('./clinical-assignments-api', () => ({
+  vinculosClinicosApi: {
+    listar: mocks.listar, conceder: mocks.conceder, revogar: mocks.revogar,
+  },
+}));
+
+let queryClient: QueryClient;
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.clientes.mockResolvedValue([{ id: ids.paciente, nome: 'Paciente Inteiramente Fictício' }]);
+  mocks.profissionais.mockResolvedValue([{ id: ids.profissional, nome: 'Fisioterapeuta Teste' }]);
+  mocks.listar.mockResolvedValue([]);
+  mocks.conceder.mockResolvedValue({ id: ids.vinculo });
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+});
+afterEach(() => { cleanup(); queryClient.clear(); });
+
+describe('administração de vínculos de prontuário em banco', () => {
+  it('consulta cadastros e concede vínculo usando organização/área autenticadas', async () => {
+    render(<QueryClientProvider client={queryClient}><ClinicalAssignmentsWorkspace /></QueryClientProvider>);
+    const paciente = await screen.findByRole('option', { name: 'Paciente Inteiramente Fictício' });
+    expect(paciente).toBeTruthy();
+    await screen.findByRole('option', { name: 'Fisioterapeuta Teste' });
+
+    fireEvent.change(screen.getByLabelText('Paciente cadastrado *'), {
+      target: { value: ids.paciente },
+    });
+    fireEvent.change(screen.getByLabelText('Fisioterapeuta *'), {
+      target: { value: ids.profissional },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Conceder vínculo' }));
+    await waitFor(() => expect(mocks.conceder).toHaveBeenCalledOnce());
+    expect(mocks.conceder).toHaveBeenCalledWith(
+      { organizacaoId: ids.org, areaId: ids.area }, ids.paciente, ids.profissional,
+    );
+    expect(await screen.findByText('Vínculo registrado no banco.', { exact: false })).toBeTruthy();
+  });
+});
