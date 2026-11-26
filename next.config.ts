@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  distDir: process.env.E2E_PAYMENTS_UI === '1' ? '.next/payments-ui' : '.next',
   async headers() {
     return [
       {
@@ -18,6 +19,14 @@ const nextConfig: NextConfig = {
           headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
         }),
       ),
+      {
+        source: '/pagamento/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [

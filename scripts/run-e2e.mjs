@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { createHmac } from 'node:crypto';
@@ -24,6 +25,86 @@ function parseEnv(file) {
       }),
   );
 }
+if (process.argv.includes('--payments-ui-only')) {
+  const uiURL = 'http://127.0.0.1:3027';
+  const uiEnv = {
+    ...process.env,
+    E2E_PAYMENTS_UI: '1',
+    BACKEND_URL: 'http://127.0.0.1:9',
+    E2E_BASE_URL: uiURL,
+  };
+  const generated = ['next-env.d.ts', 'tsconfig.json'].map((name) => ({
+    file: path.join(frontend, name),
+    before: readFileSync(path.join(frontend, name), 'utf8'),
+    after: null,
+  }));
+  let uiServer;
+  try {
+    await new Promise((resolve, reject) => {
+      const probe = createServer();
+      probe.once('error', () =>
+        reject(new Error('A porta 3027 está ocupada. Nenhum servidor existente será utilizado.')),
+      );
+      probe.listen(3027, '127.0.0.1', () => probe.close(resolve));
+    });
+    process.stdout.write('Compilando frontend isolado, sem API ou banco...\n');
+    try {
+      await run(process.execPath, [nextBin, 'build', '--webpack'], {
+        env: uiEnv,
+        label: 'Build UI',
+        showOutput: true,
+      });
+    } finally {
+      for (const item of generated) item.after = readFileSync(item.file, 'utf8');
+    }
+    uiServer = spawn(
+      process.execPath,
+      [nextBin, 'start', '--hostname', '127.0.0.1', '--port', '3027'],
+      {
+        cwd: frontend,
+        env: uiEnv,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('O frontend isolado não iniciou.')), 30000);
+      uiServer.once('exit', () => {
+        clearTimeout(timer);
+        reject(new Error('O frontend isolado encerrou antes de iniciar.'));
+      });
+      uiServer.once('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      uiServer.stderr.resume();
+      uiServer.stdout.on('data', (chunk) => {
+        if (chunk.toString().includes('Ready in')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+    });
+    await waitFor(`${uiURL}/login`, uiServer);
+    const output = await run(process.execPath, [playwrightBin, 'test', 'e2e/infinitepay.spec.ts'], {
+      env: uiEnv,
+      label: 'Playwright UI',
+      showOutput: true,
+    });
+    process.stdout.write(output);
+  } catch (error) {
+    process.exitCode = 1;
+    process.stderr.write(`${error instanceof Error ? error.message : 'Falha E2E UI.'}\n`);
+  } finally {
+    await stop(uiServer);
+    for (const item of generated) {
+      if (item.after !== null && readFileSync(item.file, 'utf8') === item.after)
+        writeFileSync(item.file, item.before);
+    }
+  }
+  process.exit(process.exitCode || 0);
+}
+
 const testEnv = parseEnv(path.join(backend, '.env.test'));
 const devEnv = parseEnv(path.join(backend, '.env'));
 if (

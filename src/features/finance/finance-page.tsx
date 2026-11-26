@@ -18,11 +18,13 @@ import {
   type Filtros,
   type Pagina,
 } from './finance-api';
-import { currentPeriod, money } from './finance-utils';
+import { currentPeriod, financeErrorMessage, money } from './finance-utils';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
+import { InfinitePaySettings } from '@/features/payments/infinitepay-settings';
+import { ChargePanel } from '@/features/payments/charge-panel';
 
-type Tab = 'planos' | 'assinaturas' | 'mensalidades';
+type Tab = 'planos' | 'assinaturas' | 'mensalidades' | 'integracao';
 const statusClass: Record<string, string> = {
   ATIVA: 'bg-emerald-50 text-emerald-800',
   PAGA: 'bg-emerald-50 text-emerald-800',
@@ -121,7 +123,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
   const customerOptions = useQuery({
     queryKey: ['clientes', context.organizacaoId, context.areaId, ''],
     queryFn: () => clientes(context.organizacaoId, context.areaId),
-    enabled: tab !== 'planos',
+    enabled: tab === 'assinaturas' || tab === 'mensalidades',
   });
   const planDetail = useFinanceQuery(
     context,
@@ -188,7 +190,13 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           </div>
         ) : summary.isError ? (
           <div className="sm:col-span-2 xl:col-span-3">
-            <ErrorState message={summary.error.message} retry={() => summary.refetch()} />
+            <ErrorState
+              message={financeErrorMessage(
+                summary.error,
+                'Não foi possível carregar o resumo financeiro. Tente novamente.',
+              )}
+              retry={() => summary.refetch()}
+            />
           </div>
         ) : (
           summary.data && (
@@ -199,7 +207,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                   {money(summary.data.valor_em_aberto)}
                 </strong>
                 <p className="mt-3 text-xs text-teal-100">
-                  {summary.data.mensalidades_em_aberto} mensalidade(s), conforme a API
+                  {summary.data.mensalidades_em_aberto} mensalidade(s)
                 </p>
               </div>
               <div className="surface min-w-0 p-5">
@@ -216,7 +224,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                 <strong className="display mt-3 block break-words text-3xl text-teal-800 sm:text-4xl">
                   {money(summary.data.recebido_periodo)}
                 </strong>
-                <p className="mt-3 text-xs text-slate-500">Valor confirmado no servidor</p>
+                <p className="mt-3 text-xs text-slate-500">Pagamentos confirmados</p>
               </div>
             </>
           )
@@ -224,7 +232,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
       </section>
       <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções financeiras">
-          {(['mensalidades', 'assinaturas', 'planos'] as Tab[]).map((value) => (
+          {(['mensalidades', 'assinaturas', 'planos', 'integracao'] as Tab[]).map((value) => (
             <button
               key={value}
               type="button"
@@ -237,7 +245,9 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                 ? 'Mensalidades'
                 : value === 'assinaturas'
                   ? 'Assinaturas'
-                  : 'Planos'}
+                  : value === 'planos'
+                    ? 'Planos'
+                    : 'InfinitePay'}
             </button>
           ))}
         </div>
@@ -252,6 +262,11 @@ function FinanceContent({ context }: { context: FinanceContext }) {
         ) : null}
       </div>
 
+      {tab === 'integracao' && (
+        <section role="tabpanel" className="mt-5">
+          <InfinitePaySettings context={context} />
+        </section>
+      )}
       {tab === 'planos' && (
         <section role="tabpanel" className="mt-5">
           <div className="surface mb-4 p-4">
@@ -268,7 +283,13 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           {plans.isPending ? (
             <LoadingState />
           ) : plans.isError ? (
-            <ErrorState message={plans.error.message} retry={() => plans.refetch()} />
+            <ErrorState
+              message={financeErrorMessage(
+                plans.error,
+                'Não foi possível carregar os planos. Tente novamente.',
+              )}
+              retry={() => plans.refetch()}
+            />
           ) : !visiblePlans.length ? (
             <EmptyState
               title="Nenhum plano encontrado"
@@ -354,7 +375,10 @@ function FinanceContent({ context }: { context: FinanceContext }) {
             <LoadingState />
           ) : subscriptions.isError ? (
             <ErrorState
-              message={subscriptions.error.message}
+              message={financeErrorMessage(
+                subscriptions.error,
+                'Não foi possível carregar as assinaturas. Tente novamente.',
+              )}
               retry={() => subscriptions.refetch()}
             />
           ) : !visibleSubscriptions.length ? (
@@ -476,7 +500,13 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           {invoices.isPending ? (
             <LoadingState />
           ) : invoices.isError ? (
-            <ErrorState message={invoices.error.message} retry={() => invoices.refetch()} />
+            <ErrorState
+              message={financeErrorMessage(
+                invoices.error,
+                'Não foi possível carregar as mensalidades. Tente novamente.',
+              )}
+              retry={() => invoices.refetch()}
+            />
           ) : !visibleInvoices.length ? (
             <EmptyState
               title="Nenhuma mensalidade encontrada"
@@ -562,7 +592,13 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           {planDetail.isPending ? (
             <LoadingState rows={2} />
           ) : planDetail.isError ? (
-            <ErrorState message={planDetail.error.message} retry={() => planDetail.refetch()} />
+            <ErrorState
+              message={financeErrorMessage(
+                planDetail.error,
+                'Não foi possível carregar o plano. Tente novamente.',
+              )}
+              retry={() => planDetail.refetch()}
+            />
           ) : (
             planDetail.data && (
               <dl className="mt-5 space-y-3 text-sm">
@@ -601,7 +637,10 @@ function FinanceContent({ context }: { context: FinanceContext }) {
             <LoadingState rows={2} />
           ) : subscriptionDetail.isError ? (
             <ErrorState
-              message={subscriptionDetail.error.message}
+              message={financeErrorMessage(
+                subscriptionDetail.error,
+                'Não foi possível carregar a assinatura. Tente novamente.',
+              )}
               retry={() => subscriptionDetail.refetch()}
             />
           ) : (
@@ -669,7 +708,10 @@ function FinanceContent({ context }: { context: FinanceContext }) {
             <LoadingState rows={2} />
           ) : invoiceDetail.isError ? (
             <ErrorState
-              message={invoiceDetail.error.message}
+              message={financeErrorMessage(
+                invoiceDetail.error,
+                'Não foi possível carregar a mensalidade. Tente novamente.',
+              )}
               retry={() => invoiceDetail.refetch()}
             />
           ) : (
@@ -725,6 +767,12 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                     <p className="mt-2 text-sm text-slate-500">Nenhum recebimento registrado.</p>
                   )}
                 </div>
+                <ChargePanel
+                  context={context}
+                  mensalidadeId={invoiceDetail.data.id}
+                  payable={!['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status)}
+                  onChanged={refresh}
+                />
                 {!['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status) && (
                   <Button
                     className="mt-6 w-full"

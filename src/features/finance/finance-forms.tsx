@@ -11,6 +11,7 @@ import { clientes } from '@/lib/api';
 import { financeApi, type FinanceContext, type Plano } from './finance-api';
 import {
   apiMoney,
+  financeErrorMessage,
   assinaturaSchema,
   competenciaSchema,
   planoSchema,
@@ -18,8 +19,7 @@ import {
 } from './finance-utils';
 
 type BaseProps = { context: FinanceContext; onClose: () => void; onSaved: () => void };
-const errorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+const errorMessage = financeErrorMessage;
 const fieldError = (message?: string) =>
   message && (
     <span role="alert" className="mt-1 block text-xs text-red-700">
@@ -135,7 +135,10 @@ export function SubscriptionForm({
           </p>
         ) : customers.isError ? (
           <p role="alert" className="mt-5 text-sm text-red-700">
-            {customers.error.message}
+            {financeErrorMessage(
+              customers.error,
+              'Não foi possível carregar os clientes. Tente novamente.',
+            )}
           </p>
         ) : (
           <form onSubmit={submit} className="mt-6 space-y-4">
@@ -227,7 +230,7 @@ export function GenerateMonthlyForm({
       <DialogContent className="max-w-md">
         <DialogTitle className="display pr-8 text-3xl">Gerar mensalidade</DialogTitle>
         <DialogDescription className="mt-2 text-sm text-slate-600">
-          A API evita gerar duas mensalidades da mesma competência.
+          Mensalidades já existentes para esta competência serão mantidas, sem duplicação.
         </DialogDescription>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block">

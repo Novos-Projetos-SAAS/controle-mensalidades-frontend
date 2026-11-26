@@ -58,3 +58,23 @@ export function todayLocal(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
+
+export function financeErrorMessage(
+  error: unknown,
+  fallback = 'Não foi possível concluir a operação. Tente novamente.',
+): string {
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (message === 'Trocar a InfiniteTag exige nova API Key.')
+    return 'Ao trocar a InfiniteTag, informe uma nova chave da conta.';
+  if (message === 'Configure a InfiniteTag e a API Key para ativar.')
+    return 'Informe a InfiniteTag e a chave da conta para ativar.';
+  if (
+    message === 'Chave de criptografia ausente ou inválida.' ||
+    message === 'Criptografia InfinitePay não configurada.'
+  )
+    return 'A configuração de pagamentos precisa ser concluída. Entre em contato com o suporte.';
+
+  const technical =
+    /\b(?:api|webhooks?|payload|idempot[^\s.,;:!?]*|servidor|backend|frontend|endpoint|stack(?:trace)?|sql|knex|postgres(?:ql)?|ECONN\w*|ETIMEDOUT|ENOTFOUND|TypeError|ReferenceError|SyntaxError|fetch failed|failed to fetch|internal server error|erro interno|duplicate key|unique constraint)\b/i;
+  return message && !technical.test(message) ? message : fallback;
+}
