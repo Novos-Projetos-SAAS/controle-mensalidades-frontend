@@ -1,3 +1,7 @@
+**ATUALIZAÇÃO (26/11/2026):** O banco de desenvolvimento escolhido é `mensalidades-desenv`, e não a branch Neon de homologação citada abaixo. Para preparar o backend use `docs/clinico/persistencia-postgresql-desenv.md` na branch clínica do backend e o comando `npm run prontuario:migrate:desenv`. Não executar migrations na branch de teste por engano.
+
+---
+
 # Prontuário com persistência no PostgreSQL — somente homologação
 
 O novo prontuário **não** usa o arquivo local da demonstração e não guarda
