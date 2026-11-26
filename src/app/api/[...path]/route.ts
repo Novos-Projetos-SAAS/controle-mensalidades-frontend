@@ -21,6 +21,30 @@ async function forward(request: NextRequest, { params }: Context) {
       { status: 400, headers: { 'Cache-Control': 'private, no-store' } },
     );
   }
+  // Endpoints clínicos de escrita usam cookie de sessão: rejeitar origem
+  // cruzada antes do proxy encaminhar a requisição ao backend.
+  if (
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) &&
+    path[0] === 'v1' &&
+    ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos'].includes(path[1] ?? '')
+  ) {
+    try {
+      const origem = request.headers.get('origin');
+      const host = request.headers.get('host');
+      const site = request.headers.get('sec-fetch-site');
+      if (
+        !origem || !host || new URL(origem).host !== host ||
+        (site !== null && site !== 'same-origin' && site !== 'none')
+      ) {
+        throw new Error('Origem não permitida');
+      }
+    } catch {
+      return Response.json(
+        { mensagem: 'Requisição clínica não autorizada.', codigo: 'ORIGEM_NAO_AUTORIZADA' },
+        { status: 403, headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    }
+  }
   const base =
     process.env.BACKEND_URL ||
     (process.env.NODE_ENV === 'development' ? 'http://localhost:3333' : null);
