@@ -170,4 +170,43 @@ describe('área clínica autenticada em homologação', () => {
       '2026-11-22T14:30:00-03:00',
     );
   });
+  it('consulta o histórico persistido pelo backend após desmontar e abrir uma sessão nova', async () => {
+    let gravado = false;
+    apiMock.timeline.mockImplementation(async () => gravado ? [{
+      id: ids.anamnese, tipo: 'ANAMNESE', paciente_id: ids.paciente,
+      data: '2026-11-25T15:00:00.000Z', profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício', titulo: 'Anamnese e avaliação inicial',
+      versao: 1, estado: 'RASCUNHO',
+    }] : []);
+    apiMock.criarAnamnese.mockImplementation(async () => {
+      gravado = true;
+      return { id: ids.anamnese, versao: 1, estado: 'RASCUNHO' };
+    });
+
+    const primeira = montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nova anamnese' }));
+    const campos = [
+      ['Queixa principal *', 'Queixa sintética de reabertura'],
+      ['História da condição atual *', 'História fictícia'],
+      ['Limitações funcionais *', 'Limitações fictícias'],
+      ['Objetivos do paciente *', 'Objetivos fictícios'],
+      ['Avaliação inicial do fisioterapeuta *', 'Avaliação fictícia'],
+    ] as const;
+    for (const [rotulo, valor] of campos) {
+      fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar anamnese na homologação' }));
+    await waitFor(() => expect(apiMock.criarAnamnese).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.getByText('Anamnese registrada no banco de homologação.')).toBeTruthy());
+
+    primeira.unmount();
+    client.clear();
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    expect(await screen.findByText('Anamnese e avaliação inicial')).toBeTruthy();
+    expect(apiMock.timeline).toHaveBeenCalledTimes(2);
+    expect(gravado).toBe(true);
+  });
+
 });
