@@ -95,8 +95,11 @@ tabelas, sem executar `migrate:rollback` e sem apagar histórico clínico**.
 
 ## 5. Etapa posterior — persistência clínica de verdade
 
-- Revisar e homologar as migrations 067 (evolução), 068 (documentos
-  versionados) e 069 (vínculo paciente–fisioterapeuta).
+- Preservar a migration `067` original da InfinitePay e revisar/homologar
+  as migrations clínicas `068` (documentos versionados), `069` (vínculo
+  paciente–fisioterapeuta) e `070` (evolução estruturada), nesta ordem.
+  As alterações clínicas permanecem em PRs de revisão e não devem ser
+  aplicadas automaticamente no Neon.
 - Selecionar branch/instância de **homologação do Neon**, sem pacientes reais,
   com credenciais runtime e migrations distintas, restauração testada e
   ambiente explicitamente identificado.
