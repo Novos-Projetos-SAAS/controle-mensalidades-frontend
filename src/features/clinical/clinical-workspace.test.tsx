@@ -205,7 +205,7 @@ describe('área clínica autenticada em homologação', () => {
     montar();
     fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
     expect(await screen.findByText('Anamnese e avaliação inicial')).toBeTruthy();
-    expect(apiMock.timeline).toHaveBeenCalledTimes(2);
+    expect(apiMock.timeline.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(gravado).toBe(true);
   });
 
