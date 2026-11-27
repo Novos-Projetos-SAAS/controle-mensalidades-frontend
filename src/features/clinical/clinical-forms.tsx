@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,8 +93,15 @@ export function AnamneseForm({
 }
 
 export function EvolucaoForm({
-  onValidated, initialValues, demo = false, clinical = false,
-}: { onValidated: (dados: EvolucaoDraft) => void; initialValues?: Partial<EvolucaoDraft>; demo?: boolean; clinical?: boolean }) {
+  onValidated, initialValues, demo = false, clinical = false, dataHoraSessao,
+}: {
+  onValidated: (dados: EvolucaoDraft) => void;
+  initialValues?: Partial<EvolucaoDraft>;
+  demo?: boolean;
+  clinical?: boolean;
+  /** Na API autenticada, data vem do único campo de data/hora do atendimento. */
+  dataHoraSessao?: string;
+}) {
   const form = useForm<z.input<typeof evolucaoSchema>, unknown, EvolucaoDraft>({
     resolver: zodResolver(evolucaoSchema),
     defaultValues: {
@@ -111,13 +118,31 @@ export function EvolucaoForm({
     },
   });
   const erros = form.formState.errors;
+  const { setValue } = form;
+  const dataClinica = dataHoraSessao?.slice(0, 10) ?? '';
+  useEffect(() => {
+    if (clinical) {
+      setValue('data_sessao', dataClinica, { shouldValidate: true });
+    }
+  }, [clinical, dataClinica, setValue]);
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Evolução da sessão</h2>
       <AvisoRascunho demo={demo} clinical={clinical} />
-      <Field label="Data da sessão *" error={erros.data_sessao?.message}>
-        <Input type="date" {...form.register('data_sessao')} />
-      </Field>
+      {clinical ? (
+        <>
+          <input type="hidden" {...form.register('data_sessao')} />
+          {erros.data_sessao?.message && (
+            <p role="alert" className="text-sm text-red-700">
+              Informe a data e hora do atendimento acima para continuar.
+            </p>
+          )}
+        </>
+      ) : (
+        <Field label="Data da sessão *" error={erros.data_sessao?.message}>
+          <Input type="date" {...form.register('data_sessao')} />
+        </Field>
+      )}
       <Field label="Objetivo da sessão *" error={erros.objetivo_sessao?.message}>
         <textarea {...form.register('objetivo_sessao')} className={areaClasse} />
       </Field>
