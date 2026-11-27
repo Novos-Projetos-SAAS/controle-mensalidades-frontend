@@ -15,54 +15,34 @@ import {
   AnamneseForm, EvolucaoForm, LaudoForm,
 } from './clinical-forms';
 import type { AnamneseDraft, EvolucaoDraft, LaudoDraft } from './clinical-contracts';
+import { camposClinicosParaLeitura, formatarDataHoraClinica, type TipoLeituraClinica } from './clinical-display';
 
 type Formulario = 'ANAMNESE' | 'EVOLUCAO' | 'LAUDO';
 type DadosForm = AnamneseDraft | EvolucaoDraft | LaudoDraft;
-
-const campos: Record<string, string> = {
-  queixa_principal: 'Queixa principal',
-  historia_condicao_atual: 'História da condição atual',
-  antecedentes: 'Antecedentes',
-  medicamentos_alergias: 'Medicamentos e alergias',
-  limitacoes_funcionais: 'Limitações funcionais',
-  objetivos_paciente: 'Objetivos',
-  avaliacao_inicial: 'Avaliação inicial',
-  finalidade: 'Finalidade',
-  fundamentacao_avaliacao: 'Fundamentação',
-  achados_funcionais: 'Achados funcionais',
-  diagnostico_fisioterapeutico: 'Diagnóstico fisioterapêutico',
-  conclusao: 'Conclusão',
-  recomendacoes: 'Recomendações',
-  data_sessao: 'Data da sessão',
-  objetivo_sessao: 'Objetivo da sessão',
-  avaliacao_previa: 'Avaliação prévia',
-  procedimentos_realizados: 'O que foi trabalhado',
-  exercicios_parametros: 'Exercícios e parâmetros',
-  resposta_paciente: 'Resposta',
-  evolucao: 'Evolução clínica',
-  orientacoes: 'Orientações',
-  plano_proxima_sessao: 'Próxima sessão',
-};
 
 function mensagemErro(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) return 'Acesso clínico não autorizado. Verifique seu vínculo e as permissões com o administrador.';
     if (error.status === 404) return 'A API clínica ainda não está homologada ou o registro não está disponível para esta conta.';
+    if (error.code === 'DATA_SESSAO_FUTURA') return 'A evolução só pode ser registrada após a realização do atendimento. Confira a data e a hora informadas.';
+    if (error.code === 'DADOS_SESSAO_CLINICA_INVALIDOS') return 'Confira os dados da evolução e informe uma data e hora válidas.';
     if (error.status === 409) return 'Este registro foi alterado em outra sessão. Recarregue o histórico antes de tentar novamente.';
     return 'Não foi possível acessar o prontuário. Tente novamente.';
   }
   return error instanceof Error ? error.message : 'Operação clínica não concluída.';
 }
 
-function exibirValores(conteudo: Record<string, unknown>) {
+function exibirValores(conteudo: Record<string, unknown>, tipo: TipoLeituraClinica) {
+  const campos = camposClinicosParaLeitura(conteudo, tipo);
+  if (!campos.length) {
+    return <p className="text-sm text-slate-600">Nenhuma informação clínica preenchida neste registro.</p>;
+  }
   return (
-    <dl className="grid gap-3 sm:grid-cols-2">
-      {Object.entries(conteudo).filter(([key]) => ![
-        'cliente_id', 'profissional_id', 'organizacao_id', 'area_negocio_id',
-      ].includes(key)).map(([key, value]) => (
-        <div key={key} className="min-w-0 border-b border-slate-100 pb-2">
-          <dt className="text-xs font-semibold text-slate-600">{campos[key] || key}</dt>
-          <dd className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-900">{String(value ?? 'Não informado')}</dd>
+    <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+      {campos.map(({ rotulo, valor }) => (
+        <div key={rotulo} className="min-w-0 border-b border-slate-100 pb-3">
+          <dt className="text-sm font-medium text-slate-600">{rotulo}</dt>
+          <dd className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-900">{valor}</dd>
         </div>
       ))}
     </dl>
@@ -229,10 +209,19 @@ function ClinicalWorkspaceContext({
         setErro('Informe horário, fuso e aguarde a identificação profissional autenticada.');
         return;
       }
+      const dataHoraReal = new Date(`${horaSessao}:00${fuso}`);
+      if (!Number.isFinite(dataHoraReal.getTime())) {
+        setErro('Informe uma data e hora de atendimento válidas.');
+        return;
+      }
+      if (dataHoraReal.getTime() > Date.now()) {
+        setErro('A evolução só pode ser registrada após o atendimento. A data e hora não podem estar no futuro.');
+        return;
+      }
       await concluir(() => clinicalApi.criarEvolucao(
         contexto, pacienteId, profissionalId, dados as EvolucaoDraft,
         `${horaSessao}:00${fuso}`,
-      ), 'Evolução de sessão registrada no banco de homologação.');
+      ), 'Evolução registrada com sucesso.');
     }
   }
 
@@ -370,7 +359,8 @@ function ClinicalWorkspaceContext({
                     {formulario === 'ANAMNESE' && <AnamneseForm key={formsKey} clinical
                       initialValues={revisando ? versaoAtual?.conteudo as AnamneseDraft : undefined}
                       onValidated={salvar} />}
-                    {formulario === 'EVOLUCAO' && <EvolucaoForm key={formsKey} clinical onValidated={salvar} />}
+                    {formulario === 'EVOLUCAO' && <EvolucaoForm key={formsKey} clinical
+                      dataHoraSessao={horaSessao} onValidated={salvar} />}
                     {formulario === 'LAUDO' && <LaudoForm key={formsKey} clinical
                       initialValues={revisando ? versaoAtual?.conteudo as LaudoDraft : undefined}
                       onValidated={salvar} />}
@@ -394,7 +384,7 @@ function ClinicalWorkspaceContext({
                             <p className="text-xs font-semibold text-teal-800">{item.tipo}</p>
                             <p className="text-sm font-semibold">{item.titulo}</p>
                             <p className="text-xs text-slate-600">
-                              {item.data.slice(0, 10)} · {item.profissional_nome}
+                              {formatarDataHoraClinica(item.data)} · {item.profissional_nome}
                               {item.versao ? ` · versão ${item.versao}` : ''}
                             </p>
                           </div>
@@ -425,8 +415,8 @@ function ClinicalWorkspaceContext({
                               </Button>
                             ))}
                           </div>
-                          <p className="text-xs text-slate-600">{versao.estado} · {versao.natureza} · {versao.registrado_em.slice(0, 10)}</p>
-                          {exibirValores(versao.conteudo)}
+                          <p className="text-xs text-slate-600">{versao.estado} · {versao.natureza} · {formatarDataHoraClinica(versao.registrado_em)}</p>
+                          {exibirValores(versao.conteudo, entrada.tipo as 'ANAMNESE' | 'LAUDO')}
                           <div className="flex flex-wrap gap-2">
                             <Button disabled={salvando} variant="secondary"
                               onClick={() => abrirFormulario(entrada.tipo as 'ANAMNESE' | 'LAUDO', true)}>
@@ -443,7 +433,23 @@ function ClinicalWorkspaceContext({
                           </p>}
                         </>
                       ) : detalhe.data && 'evolucao' in detalhe.data ? (
-                        exibirValores(detalhe.data as unknown as Record<string, unknown>)
+                        <div className="space-y-5">
+                          <div className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-3">
+                            <div>
+                              <p className="text-xs text-slate-600">Paciente</p>
+                              <p className="mt-1 text-sm font-medium">{detalhe.data.cliente_nome}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-600">Fisioterapeuta</p>
+                              <p className="mt-1 text-sm font-medium">{detalhe.data.profissional_nome}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-600">Data e hora da sessão (Brasília)</p>
+                              <p className="mt-1 text-sm font-medium">{formatarDataHoraClinica(detalhe.data.data_sessao)}</p>
+                            </div>
+                          </div>
+                          {exibirValores(detalhe.data as unknown as Record<string, unknown>, 'EVOLUCAO')}
+                        </div>
                       ) : null}
                   </section>
                 )}
