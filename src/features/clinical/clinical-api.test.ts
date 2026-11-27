@@ -103,6 +103,44 @@ describe('contrato de API do prontuario protegido', () => {
     });
   });
 
+  it('baixa PDF autenticado por versão sem enviar identidade no corpo', async () => {
+    const fetchMock = vi.fn(async () => new Response(new Blob(['%PDF-1.4', 'laudo-ficticio'], {
+      type: 'application/pdf',
+    }), { status: 200, headers: { 'content-type': 'application/pdf' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const arquivo = await clinicalApi.pdfLaudo(ctx, documento, 3);
+    expect(arquivo.size).toBeGreaterThan(0);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/documentos-clinicos/' + documento + '/pdf?versao=3');
+    expect(init).toMatchObject({
+      credentials: 'same-origin', cache: 'no-store',
+      headers: {
+        Accept: 'application/pdf',
+        'x-organizacao-id': org,
+        'x-area-negocio-id': area,
+      },
+    });
+    expect(init.method).toBeUndefined();
+    expect(init.body).toBeUndefined();
+  });
+
+  it('nega PDF sem permissão e rejeita resposta que não seja PDF', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ codigo: 'ACESSO_CLINICO_NEGADO', mensagem: 'Sem vínculo' }),
+      { status: 403, headers: { 'content-type': 'application/json' } },
+    )));
+    await expect(clinicalApi.pdfLaudo(ctx, documento, 1)).rejects.toMatchObject({
+      status: 403, code: 'ACESSO_CLINICO_NEGADO',
+    });
+    expect(clinicalApi.pdfLaudo(ctx, documento, 0)).rejects.toThrow('Versão');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Erro de proxy', {
+      status: 200, headers: { 'content-type': 'text/html' },
+    })));
+    await expect(clinicalApi.pdfLaudo(ctx, documento, 1)).rejects.toMatchObject({
+      code: 'PDF_INVALIDO',
+    });
+  });
+
   it('revisa documento com controle de concorrência e natureza do adendo', async () => {
     const fetchMock = simularSucesso({ id: documento, estado: 'FINALIZADO', versao: 4 });
     await clinicalApi.revisarDocumento(
