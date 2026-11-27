@@ -7,6 +7,7 @@ import { useSession } from '@/features/auth/session';
 import { PersonForm } from '@/features/people/person-form';
 import { LinkUserDialog } from '@/features/people/link-user-dialog';
 import { WhatsappConsent } from '@/features/whatsapp/whatsapp-consent';
+import { ClienteMensalidades } from '@/features/people/cliente-mensalidades';
 import {
   api,
   cliente,
@@ -37,6 +38,7 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
   const [editing, setEditing] = useState<Cliente | Profissional | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<'cadastro' | 'mensalidades'>('cadastro');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [linkId, setLinkId] = useState<string | null>(null);
   useEffect(() => {
@@ -234,7 +236,10 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setDetailId(person.id)}
+                        onClick={() => {
+                          setDetailTab('cadastro');
+                          setDetailId(person.id);
+                        }}
                         aria-label={`Ver detalhes de ${person.nome}`}
                       >
                         Detalhes <ArrowRight size={16} />
@@ -257,14 +262,38 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
         areaId={areaId}
         onSaved={refresh}
       />
-      <Dialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(null)}>
-        <DialogContent>
+      <Dialog open={!!detailId} onOpenChange={(open) => {
+        if (!open) {
+          setDetailId(null);
+          setDetailTab('cadastro');
+        }
+      }}>
+        <DialogContent className={isClient ? 'max-w-2xl' : undefined}>
           <DialogTitle className="display pr-10 text-3xl">
             {detail.data?.nome || 'Detalhes do cadastro'}
           </DialogTitle>
           <DialogDescription className="mt-1 text-sm text-slate-600">
             Informações registradas na organização atual.
           </DialogDescription>
+          {isClient && organization?.perfil === 'ADMINISTRADOR' && (
+            <div role="tablist" aria-label="Seções do cliente"
+              className="mt-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+              <Button type="button" role="tab"
+                id="cliente-tab-cadastro" aria-controls="cliente-painel-cadastro"
+                aria-selected={detailTab === 'cadastro'}
+                variant={detailTab === 'cadastro' ? 'default' : 'outline'}
+                onClick={() => setDetailTab('cadastro')}>
+                Cadastro
+              </Button>
+              <Button type="button" role="tab"
+                id="cliente-tab-mensalidades" aria-controls="cliente-painel-mensalidades"
+                aria-selected={detailTab === 'mensalidades'}
+                variant={detailTab === 'mensalidades' ? 'default' : 'outline'}
+                onClick={() => setDetailTab('mensalidades')}>
+                Mensalidades
+              </Button>
+            </div>
+          )}
           {detail.isPending ? (
             <div className="mt-6">
               <LoadingState rows={3} />
@@ -276,6 +305,9 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
           ) : (
             detail.data && (
               <>
+                {(detailTab === 'cadastro' || !isClient || organization?.perfil !== 'ADMINISTRADOR') && (
+                  <div role={isClient ? 'tabpanel' : undefined} id="cliente-painel-cadastro"
+                    aria-labelledby={isClient ? 'cliente-tab-cadastro' : undefined}>
                 <dl className="mt-6 grid gap-4 rounded-xl bg-slate-50 p-5 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-slate-500">CPF</dt>
@@ -364,6 +396,26 @@ export function PeoplePage({ kind }: { kind: 'clientes' | 'profissionais' }) {
                     </>
                   )}
                 </div>
+                  </div>
+                )}
+                {isClient && organization?.perfil === 'ADMINISTRADOR' &&
+                  detailTab === 'mensalidades' && (
+                    <div role="tabpanel" id="cliente-painel-mensalidades"
+                      aria-labelledby="cliente-tab-mensalidades">
+                      {areaId && detail.data.areas.some(({ id }) => id === areaId) ? (
+                        <ClienteMensalidades
+                          key={`${orgId}:${areaId}:${detail.data.id}`}
+                          clienteId={detail.data.id}
+                          clienteNome={detail.data.nome}
+                          contexto={{ organizacaoId: orgId, areaId }}
+                        />
+                      ) : (
+                        <p className="mt-5 text-sm text-slate-600">
+                          Selecione uma área em que este cliente esteja cadastrado para consultar as mensalidades.
+                        </p>
+                      )}
+                    </div>
+                  )}
               </>
             )
           )}
