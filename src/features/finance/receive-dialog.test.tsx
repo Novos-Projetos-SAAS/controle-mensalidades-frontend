@@ -73,11 +73,17 @@ describe('recebimento manual', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrando...' }));
     expect(financeApi.receber).toHaveBeenCalledOnce();
     failFirst(new ApiError('Tempo esgotado', 0));
-    expect(await screen.findByText(/Não foi possível confirmar o resultado/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Ainda não conseguimos confirmar o pagamento. Consulte a situação antes de tentar novamente.',
+      ),
+    ).toBeTruthy();
     expect(onSaved).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Verificar no servidor' }));
-    await screen.findByRole('button', { name: 'Repetir a mesma tentativa' });
-    fireEvent.click(screen.getByRole('button', { name: 'Repetir a mesma tentativa' }));
+    expect(screen.queryByRole('button', { name: 'Tentar novamente' })).toBeNull();
+    expect(screen.getByText('Valor em aberto')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir pagamento' }));
+    await screen.findByRole('button', { name: 'Tentar novamente' });
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     await waitFor(() => expect(financeApi.receber).toHaveBeenCalledTimes(2));
     expect(vi.mocked(financeApi.receber).mock.calls[1][2]).toBe(
       vi.mocked(financeApi.receber).mock.calls[0][2],
@@ -147,10 +153,20 @@ describe('recebimento manual', () => {
     });
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar recebimento' }));
-    expect(await screen.findByText(/Não foi possível confirmar o resultado/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Ainda não conseguimos confirmar o pagamento. Consulte a situação antes de tentar novamente.',
+      ),
+    ).toBeTruthy();
     expect(onSaved).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Verificar no servidor' }));
-    expect(await screen.findByText(/O estado no servidor mudou/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Tentar novamente' })).toBeNull();
+    expect(screen.getByText('Valor em aberto')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir pagamento' }));
+    expect(
+      await screen.findByText(
+        'A situação do pagamento mudou. Confira o histórico de recebimentos antes de continuar.',
+      ),
+    ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Confirmar recebimento' }).hasAttribute('disabled'),
     ).toBe(true);

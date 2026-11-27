@@ -282,7 +282,9 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   expect(firstResult.data.pagamento.valor).toBe('49.90');
   await otherTab.getByRole('button', { name: 'Confirmar recebimento' }).click();
   await expect(
-    otherTab.getByRole('alert').filter({ hasText: 'O saldo ou a situação mudou no servidor' }),
+    otherTab.getByRole('alert').filter({
+      hasText: 'O valor em aberto ou a situação do pagamento mudou.',
+    }),
   ).toBeVisible();
   expect(otherTabPosts).toBe(0);
   await otherTab.close();
@@ -333,7 +335,7 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Detalhes' }).click();
   const updatedInvoice = page.getByRole('dialog');
-  await expect(updatedInvoice.getByText('Paga')).toBeVisible();
+  await expect(updatedInvoice.getByText('Paga', { exact: true })).toBeVisible();
   await expect(updatedInvoice.getByText(/PIX/)).toBeVisible();
   await expect(updatedInvoice.getByRole('listitem')).toHaveCount(1);
   await updatedInvoice.getByRole('button', { name: 'Fechar' }).click();

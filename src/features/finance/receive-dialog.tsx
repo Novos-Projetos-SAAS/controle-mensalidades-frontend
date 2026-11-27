@@ -12,6 +12,7 @@ import { ApiError } from '@/lib/api';
 import { financeApi, useFinanceQuery, type FinanceContext, type Mensalidade } from './finance-api';
 import {
   apiMoney,
+  financeErrorMessage,
   cents,
   hasNewPayment,
   money,
@@ -84,17 +85,19 @@ export function ReceiveDialog({
         setUncertain(false);
         pendingAttempts.delete(scope);
         setMessage(
-          'O estado no servidor mudou. Confira o histórico do recebimento antes de qualquer nova operação.',
+          'A situação do pagamento mudou. Confira o histórico de recebimentos antes de continuar.',
         );
       } else {
         setVerified(true);
         setMessage(
-          'Nenhum novo recebimento consta agora. Você pode repetir somente a mesma tentativa; o servidor usará a mesma chave.',
+          'Nenhum novo recebimento foi encontrado. Você pode tentar novamente com os mesmos dados.',
         );
       }
       await detail.refetch();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível consultar o servidor.');
+      setMessage(
+        financeErrorMessage(error, 'Não foi possível conferir o pagamento. Tente novamente.'),
+      );
     }
   }
 
@@ -112,7 +115,7 @@ export function ReceiveDialog({
       if (attempt.current && !sameReceiptPayload(attempt.current.payload, payload)) {
         setBlocked(true);
         setMessage(
-          'Os dados da tentativa mudaram. Confira o servidor antes de iniciar outra operação.',
+          'Os dados do recebimento mudaram. Confira a situação do pagamento antes de continuar.',
         );
         return;
       }
@@ -125,7 +128,7 @@ export function ReceiveDialog({
         ) {
           setBlocked(true);
           setMessage(
-            'O saldo ou a situação mudou no servidor. Reabra a mensalidade para conferir.',
+            'O valor em aberto ou a situação do pagamento mudou. Reabra a mensalidade para conferir.',
           );
           return;
         }
@@ -152,7 +155,7 @@ export function ReceiveDialog({
           setUncertain(true);
           setVerified(false);
           setMessage(
-            'Não foi possível confirmar o resultado. Consulte o servidor antes de repetir a mesma tentativa.',
+            'Ainda não conseguimos confirmar o pagamento. Consulte a situação antes de tentar novamente.',
           );
         } else setMessage('Não foi possível consultar o saldo. Nenhum recebimento foi enviado.');
       } else {
@@ -160,7 +163,9 @@ export function ReceiveDialog({
         pendingAttempts.delete(scope);
         setUncertain(false);
         setVerified(false);
-        setMessage(error instanceof Error ? error.message : 'Falha ao registrar recebimento.');
+        setMessage(
+          financeErrorMessage(error, 'Não foi possível registrar o recebimento. Tente novamente.'),
+        );
       }
     } finally {
       locked.current = false;
@@ -197,7 +202,13 @@ export function ReceiveDialog({
           </div>
         ) : detail.isError ? (
           <div className="mt-5">
-            <ErrorState message={detail.error.message} retry={() => detail.refetch()} />
+            <ErrorState
+              message={financeErrorMessage(
+                detail.error,
+                'Não foi possível carregar a mensalidade. Tente novamente.',
+              )}
+              retry={() => detail.refetch()}
+            />
           </div>
         ) : (
           invoice && (
@@ -212,7 +223,7 @@ export function ReceiveDialog({
                   <dd className="font-semibold">{money(invoice.valor_final)}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Saldo no servidor</dt>
+                  <dt className="text-slate-500">Valor em aberto</dt>
                   <dd className="font-semibold">{money(invoice.saldo)}</dd>
                 </div>
               </dl>
@@ -273,7 +284,7 @@ export function ReceiveDialog({
                       disabled={uncertain || sending}
                     />
                     <span>
-                      Confirmo que este valor foi recebido e deve ser registrado no servidor.
+                      Confirmo que este valor foi recebido e desejo registrar o pagamento.
                     </span>
                   </label>
                   {form.formState.errors.confirmado && (
@@ -292,11 +303,11 @@ export function ReceiveDialog({
                   {uncertain && (
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" onClick={verify}>
-                        Verificar no servidor
+                        Conferir pagamento
                       </Button>
                       {verified && !blocked && (
                         <Button type="submit" disabled={sending}>
-                          Repetir a mesma tentativa
+                          Tentar novamente
                         </Button>
                       )}
                     </div>
