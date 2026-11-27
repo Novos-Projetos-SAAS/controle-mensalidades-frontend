@@ -120,8 +120,8 @@ describe('contrato de API do prontuario protegido', () => {
         'x-area-negocio-id': area,
       },
     });
-    expect(init.method).toBeUndefined();
-    expect(init.body).toBeUndefined();
+    expect(init?.method).toBeUndefined();
+    expect(init?.body).toBeUndefined();
   });
 
   it('nega PDF sem permissão e rejeita resposta que não seja PDF', async () => {
