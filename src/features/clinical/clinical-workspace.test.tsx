@@ -139,7 +139,7 @@ describe('área clínica autenticada em homologação', () => {
     expect(await screen.findByText('Alongamentos')).toBeTruthy();
     expect(screen.getByText('O que foi trabalhado na sessão')).toBeTruthy();
     expect(screen.getByText('Data e hora da sessão (Brasília)')).toBeTruthy();
-    expect(screen.getAllByText(/25\\/11\\/2026/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/25\/11\/2026/).length).toBeGreaterThan(0);
     expect(screen.queryByText('agendamento_id')).toBeNull();
     expect(screen.queryByText('corrigido_por_usuario_id')).toBeNull();
     expect(screen.queryByText(ids.anamnese)).toBeNull();
