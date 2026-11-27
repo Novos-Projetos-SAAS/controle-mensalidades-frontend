@@ -143,12 +143,15 @@ export const clinicalApi = {
   },
 
   // Apenas metadados; cada detalhe exige outra autorização e auditoria.
-  timeline(c: ClinicalContext, pacienteId: string, limite = 50) {
+  timeline(c: ClinicalContext, pacienteId: string, limite = 50, deslocamento = 0) {
     if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
       throw new Error('Limite do histórico inválido.');
     }
+    if (!Number.isInteger(deslocamento) || deslocamento < 0 || deslocamento > 10000) {
+      throw new Error('Página do histórico inválida.');
+    }
     return api<ClinicalTimelineItem[]>(
-      `/prontuario/pacientes/${identificar(pacienteId)}/historico?limite=${limite}`,
+      `/prontuario/pacientes/${identificar(pacienteId)}/historico?limite=${limite}${deslocamento ? `&deslocamento=${deslocamento}` : ''}`,
       {},
       context(c),
     );
