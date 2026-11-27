@@ -40,6 +40,9 @@ function SettingsForm({
       });
       setApiKey('');
       queryClient.setQueryData([...financeKey(context), 'infinitepay-settings'], result);
+      await queryClient.invalidateQueries({
+        queryKey: [...financeKey(context), 'payment-integrations'],
+      });
       setMessage('Configuração salva.');
     } catch (err) {
       setError(
@@ -50,7 +53,11 @@ function SettingsForm({
     }
   }
   return (
-    <form onSubmit={save} className="surface w-full max-w-2xl space-y-5 p-5 sm:p-6">
+    <form
+      onSubmit={save}
+      className="surface min-w-0 w-full space-y-5 p-5 sm:p-6"
+      aria-label="Configuração InfinitePay"
+    >
       <div>
         <h2 className="text-lg font-semibold">InfinitePay</h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -153,35 +160,5 @@ export function InfinitePaySettings({ context }: { context: FinanceContext }) {
         retry={() => query.refetch()}
       />
     );
-  return (
-    <div className="grid items-start gap-5 lg:grid-cols-2">
-      <SettingsForm context={context} settings={query.data} />
-      <section
-        className="surface space-y-4 p-5 sm:p-6"
-        aria-labelledby="other-payment-options-heading"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="other-payment-options-heading" className="text-lg font-semibold">
-              Outras opções de pagamento
-            </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-600">Em breve</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={false}
-            aria-labelledby="other-payment-options-heading"
-            disabled
-            className="mt-1 flex h-6 w-11 shrink-0 cursor-not-allowed items-center rounded-full border border-slate-300 bg-slate-200 p-0.5"
-          >
-            <span aria-hidden="true" className="size-4 rounded-full bg-white" />
-          </button>
-        </div>
-        <p className="text-sm text-slate-600">
-          Novas formas de receber pagamentos estarão disponíveis futuramente.
-        </p>
-      </section>
-    </div>
-  );
+  return <SettingsForm context={context} settings={query.data} />;
 }

@@ -82,7 +82,7 @@ function PaymentContent({ token, evidence, returned = false }: PaymentPageProps)
   const feedback = charge ? paymentStatus[charge.status] : null;
   const checkout =
     !loading && !error && charge?.status === 'AGUARDANDO_PAGAMENTO'
-      ? checkoutUrl(charge.checkout_url)
+      ? checkoutUrl(charge.checkout_url, charge.provedor)
       : null;
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10 sm:px-6">
@@ -128,7 +128,7 @@ function PaymentContent({ token, evidence, returned = false }: PaymentPageProps)
                 {checkout && (
                   <Button asChild className="w-full">
                     <a href={checkout} rel="noopener noreferrer" referrerPolicy="no-referrer">
-                      Pagar com InfinitePay
+                      Pagar com {charge.provedor === 'ABACATEPAY' ? 'AbacatePay' : 'InfinitePay'}
                     </a>
                   </Button>
                 )}
