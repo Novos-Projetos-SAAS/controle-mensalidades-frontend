@@ -212,6 +212,10 @@ test('financeiro consulta dados reais e isola o contexto administrativo', async 
   await expect(page).toHaveURL('/login');
   await signIn(page, operator);
   await expect(page.getByRole('link', { name: 'Financeiro', exact: true })).toHaveCount(0);
+  await page.goto('/clientes');
+  await page.getByRole('button', { name: 'Ver detalhes de Cliente E2E A1' }).click();
+  await expect(page.getByRole('dialog').getByRole('tab', { name: 'Mensalidades' })).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click();
   const forbidden = await page.request.get('/api/v1/financeiro/planos', {
     headers: { 'x-organizacao-id': fixture.orgA, 'x-area-negocio-id': fixture.areaA1 },
   });
@@ -339,6 +343,22 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   await expect(updatedInvoice.getByText(/PIX/)).toBeVisible();
   await expect(updatedInvoice.getByRole('listitem')).toHaveCount(1);
   await updatedInvoice.getByRole('button', { name: 'Fechar' }).click();
+  // O mesmo pagamento aparece no cadastro individual, sem gerar outra baixa.
+  await page.goto('/clientes');
+  await page.getByRole('button', { name: 'Ver detalhes de Cliente E2E A1' }).click();
+  const cadastro = page.getByRole('dialog');
+  await cadastro.getByRole('tab', { name: 'Mensalidades' }).click();
+  await expect(cadastro.getByText('Competência 2026-11')).toBeVisible();
+  await expect(cadastro.getByText('Paga', { exact: true })).toBeVisible();
+  await cadastro.getByRole('button', { name: 'Ver pagamentos e comprovantes' }).click();
+  await cadastro.getByRole('button', { name: 'Ver comprovante' }).click();
+  const comprovante = cadastro.getByRole('article', { name: 'Comprovante interno do recebimento' });
+  await expect(comprovante).toBeVisible();
+  await expect(comprovante).toContainText('PIX');
+  await expect(comprovante).toContainText('R$ 49,90');
+  await expect(comprovante).toContainText('Não substitui comprovante bancário');
+  await cadastro.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+  await page.goto('/financeiro');
   await page.getByLabel('Organiza\u00e7\u00e3o').selectOption(fixture.orgB);
   await expect(page.getByText('Nenhuma mensalidade encontrada')).toBeVisible();
 });
