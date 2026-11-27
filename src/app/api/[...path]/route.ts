@@ -96,7 +96,7 @@ async function forward(request: NextRequest, { params }: Context) {
       signal: request.signal,
     });
     const responseHeaders = new Headers({ 'Cache-Control': 'private, no-store' });
-    for (const name of ['content-type', 'set-cookie', 'x-request-id', 'location']) {
+    for (const name of ['content-type', 'content-disposition', 'x-content-type-options', 'set-cookie', 'x-request-id', 'location']) {
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
