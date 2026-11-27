@@ -45,6 +45,14 @@ export function ClinicalAssignmentsWorkspace() {
     enabled: pronto,
     retry: false,
   });
+  const identidadeProfissional = useQuery({
+    queryKey: ['vinculos-clinicos', 'identidade-profissional', usuarioId, organizationId, areaId, profissionalId],
+    queryFn: () => vinculosClinicosApi.consultarUsuarioProfissional(contexto, profissionalId),
+    enabled: pronto && !!profissionalId,
+    retry: false,
+  });
+  const usuarioProfissionalAtivo = identidadeProfissional.data?.vinculoAtivo === true;
+
   const vinculos = useQuery({
     queryKey: ['vinculos-clinicos', 'vinculos', usuarioId, organizationId, areaId, clienteId],
     queryFn: () => vinculosClinicosApi.listar(contexto, clienteId),
@@ -130,7 +138,23 @@ export function ClinicalAssignmentsWorkspace() {
               dados clínicos nesta área. Essa autorização é independente da vinculação com o paciente.
               Somente o administrador pode concedê-la.
             </p>
-            <Button type="button" variant="outline" disabled={!profissionalId || salvando || profissionalAutorizado === profissionalId}
+            {profissionalId && (
+              identidadeProfissional.isPending ? (
+                <p role="status" className="text-sm text-slate-700">Verificando usuário do profissional…</p>
+              ) : identidadeProfissional.isError ? (
+                <p role="alert" className="text-sm text-red-800">
+                  Não foi possível verificar o usuário do profissional nesta área.
+                </p>
+              ) : !usuarioProfissionalAtivo ? (
+                <p role="alert" className="text-sm text-amber-800">
+                  Este profissional não possui um usuário ativo vinculado à organização.
+                  Vincule uma conta de usuário ao profissional antes de liberar acesso clínico.
+                </p>
+              ) : (
+                <p className="text-sm text-teal-900">Usuário profissional ativo confirmado.</p>
+              )
+            )}
+            <Button type="button" variant="outline" disabled={!profissionalId || !usuarioProfissionalAtivo || salvando || profissionalAutorizado === profissionalId}
               onClick={() => {
                 if (!window.confirm('Autorizar o profissional selecionado a acessar dados clínicos desta área?')) return;
                 void executar(
