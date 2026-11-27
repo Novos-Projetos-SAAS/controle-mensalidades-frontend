@@ -49,7 +49,7 @@ describe('atalho do link na lista de mensalidades', () => {
         new URL(path, window.location.origin).href,
       ),
     );
-    expect(await screen.findByRole('status')).toHaveTextContent('Link copiado');
+    expect((await screen.findByRole('status')).textContent).toContain('Link copiado');
   });
 
   it('não disponibiliza link expirado, em análise ou com caminho adulterado', () => {
