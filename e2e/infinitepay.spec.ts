@@ -435,3 +435,106 @@ test('AbacatePay configura credenciais, escolhe provedor e autoriza/cancela reco
   );
   await page.screenshot({ path: '.tmp/abacatepay-public-mobile.png', fullPage: true });
 });
+
+for (const width of [1440, 375]) {
+  test(`quitação manual encerra cobrança sem conferir link em ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    let paid = false;
+    let receipts = 0;
+    let providerChecks = 0;
+    let intent = '';
+    const invoice = () => ({
+      id: 'm1',
+      cliente_nome: 'Cliente de teste',
+      competencia: '2026-11-01',
+      valor_final: '50.00',
+      valor_pago: paid ? '50.00' : '0.00',
+      saldo: paid ? '0.00' : '50.00',
+      vencimento_em: '2026-11-30',
+      status: paid ? 'PAGA' : 'PENDENTE',
+      pagamentos: [],
+    });
+    await page.route('**/api/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      let data: unknown = [];
+      if (path === '/api/v1/auth/me')
+        data = {
+          usuario: { id: 'u1', nome: 'Admin', email: 'admin@example.test' },
+          organizacoes: [{ id: 'o1', nome: 'Organização Teste', perfil: 'ADMINISTRADOR' }],
+        };
+      else if (path === '/api/v1/areas-negocio') data = [{ id: 'a1', nome: 'Área Teste' }];
+      else if (path.endsWith('/recebimentos')) {
+        receipts++;
+        intent = request.headers()['idempotency-key'] ?? '';
+        paid = true;
+        data = {
+          pagamento: { id: 'p1', valor: '50.00', forma_pagamento: 'PIX' },
+          repetido: false,
+          mensalidade: invoice(),
+        };
+      } else if (path === '/api/v1/financeiro/resumo')
+        data = {
+          valor_em_aberto: paid ? '0.00' : '50.00',
+          valor_vencido: '0.00',
+          recebido_periodo: paid ? '50.00' : '0.00',
+          mensalidades_em_aberto: paid ? '0' : '1',
+          mensalidades_vencidas: '0',
+        };
+      else if (path === '/api/v1/financeiro/mensalidades')
+        data = { items: [invoice()], pagination: { page: 1, pageSize: 20, total: 1, pages: 1 } };
+      else if (path === '/api/v1/financeiro/mensalidades/m1') data = invoice();
+      else if (path.endsWith('/cobranca'))
+        data = { ...charge, id: 'c1', url_plataforma: `/pagamento/${token}`, ultimo_erro: null };
+      else if (path.endsWith('/integracoes-pagamento'))
+        data = {
+          provedor_padrao: 'INFINITEPAY',
+          infinitepay: { ativo: true },
+          abacatepay: { ativo: true },
+        };
+      else if (path.includes('/conciliar') || path.includes('/confirmar')) providerChecks++;
+      else if (path.startsWith('/api/v1/pagamentos/publico/'))
+        data = { ...charge, status: 'QUITADO', checkout_url: null };
+      await route.fulfill({ json: { status: 'success', data } });
+    });
+    await page.goto('/financeiro');
+    await page.getByRole('tab', { name: 'Mensalidades' }).click();
+    await page.getByRole('button', { name: 'Detalhes', exact: true }).click();
+    await page.getByRole('button', { name: 'Registrar recebimento', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Registrar recebimento' });
+    await dialog.getByLabel('Valor a receber (R$) *').fill('50,00');
+    await dialog.getByLabel('Forma de pagamento *').fill('PIX');
+    await dialog.getByRole('checkbox', { name: /Confirmo que este valor foi recebido/ }).check();
+    await dialog.getByRole('button', { name: 'Confirmar recebimento', exact: true }).dblclick();
+    await expect(dialog).not.toBeVisible();
+    await expect(
+      page
+        .getByRole('article')
+        .filter({ hasText: 'Cliente de teste' })
+        .getByText('Paga', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Detalhes', exact: true }).click();
+    await expect(page.getByText('Mensalidade quitada', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Conferir pagamento' })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Registrar recebimento', exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Abrir página de pagamento' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Gerar link de pagamento' })).toHaveCount(0);
+    expect(receipts).toBe(1);
+    expect(intent).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(providerChecks).toBe(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.screenshot({ path: `.tmp/manual-settlement-${width}.png`, fullPage: true });
+    await page.goto(`/pagamento/retorno?token=${token}`);
+    await expect(page.getByRole('heading', { name: 'Mensalidade quitada' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Pagar com/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Atualizar situação' })).toHaveCount(0);
+    await expect(
+      page.getByText('Confira a situação do pagamento antes de tentar novamente.'),
+    ).toHaveCount(0);
+    expect(providerChecks).toBe(0);
+  });
+}

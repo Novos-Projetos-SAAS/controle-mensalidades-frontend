@@ -58,6 +58,15 @@ export function shouldPollPayment(status: string, attempts: number, visible: boo
 }
 
 export const paymentStatus: Record<string, { title: string; description: string }> = {
+  QUITADO: {
+    title: 'Mensalidade quitada',
+    description: 'O recebimento já foi registrado. Não é necessário pagar ou conferir este link.',
+  },
+  SALDO_ATUALIZADO: {
+    title: 'Valor em aberto atualizado',
+    description:
+      'Este link não corresponde ao valor restante. Entre em contato com a administração.',
+  },
   AGUARDANDO_CRIACAO: {
     title: 'Preparando pagamento',
     description: 'Aguarde a disponibilização do link.',

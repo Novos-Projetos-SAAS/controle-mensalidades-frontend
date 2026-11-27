@@ -18,7 +18,7 @@ import {
   type Filtros,
   type Pagina,
 } from './finance-api';
-import { currentPeriod, financeErrorMessage, money } from './finance-utils';
+import { cents, currentPeriod, financeErrorMessage, money } from './finance-utils';
 import { FinanceIndicators } from './finance-indicators';
 import { downloadFinanceCsv } from './finance-export';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
@@ -237,7 +237,9 @@ function FinanceContent({ context }: { context: FinanceContext }) {
         )}
       </section>
       {indicators.isPending ? (
-        <div className="mt-5"><LoadingState rows={2} /></div>
+        <div className="mt-5">
+          <LoadingState rows={2} />
+        </div>
       ) : indicators.isError ? (
         <div className="mt-5">
           <ErrorState message={indicators.error.message} retry={() => indicators.refetch()} />
@@ -464,9 +466,12 @@ function FinanceContent({ context }: { context: FinanceContext }) {
             <p className="text-xs text-slate-600">
               Exportação CSV: somente os resultados visíveis nesta página, conforme os filtros.
             </p>
-            <Button type="button" variant="outline"
+            <Button
+              type="button"
+              variant="outline"
               disabled={!visibleInvoices.length || invoices.isFetching}
-              onClick={() => downloadFinanceCsv(visibleInvoices)}>
+              onClick={() => downloadFinanceCsv(visibleInvoices)}
+            >
               Exportar página (CSV)
             </Button>
           </div>
@@ -817,7 +822,11 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                 <ChargePanel
                   context={context}
                   mensalidadeId={invoiceDetail.data.id}
-                  payable={!['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status)}
+                  payable={
+                    !['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status) &&
+                    cents(invoiceDetail.data.saldo) > BigInt(0)
+                  }
+                  quitada={invoiceDetail.data.status === 'PAGA'}
                   onChanged={refresh}
                 />
                 {!['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status) && (
