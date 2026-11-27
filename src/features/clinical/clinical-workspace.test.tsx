@@ -24,6 +24,8 @@ const apiMock = vi.hoisted(() => ({
   criarEvolucao: vi.fn(),
   revisarDocumento: vi.fn(),
   finalizarDocumento: vi.fn(),
+  corrigirEvolucao: vi.fn(),
+  historicoCorrecoes: vi.fn(),
 }));
 
 vi.mock('@/features/auth/session', () => ({
@@ -81,6 +83,8 @@ beforeEach(() => {
   });
   apiMock.criarAnamnese.mockResolvedValue({ id: ids.anamnese, versao: 1 });
   apiMock.criarEvolucao.mockResolvedValue({ id: 'sessao-sintetica' });
+  apiMock.corrigirEvolucao.mockResolvedValue({ id: ids.anamnese });
+  apiMock.historicoCorrecoes.mockResolvedValue([]);
 });
 afterEach(() => {
   cleanup();
@@ -279,4 +283,79 @@ describe('área clínica autenticada em homologação', () => {
     expect(gravado).toBe(true);
   });
 
+
+  it('mostra histórico de correções e permite corrigir a evolução mantendo data e identidade', async () => {
+    apiMock.timeline.mockResolvedValue([{
+      id: ids.anamnese, tipo: 'EVOLUCAO', paciente_id: ids.paciente,
+      data: '2026-11-22T17:30:00.000Z', profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício', titulo: 'Evolução da sessão',
+      versao: null, estado: null,
+    }]);
+    apiMock.consultarEvolucao.mockResolvedValue({
+      id: ids.anamnese, cliente_id: ids.paciente, profissional_id: ids.profissional,
+      cliente_nome: 'Paciente Teste A', profissional_nome: 'Profissional fictício',
+      data_sessao: '2026-11-22T17:30:00.000Z', corrigido_em: null,
+      evolucao: 'Evolução fictícia anterior',
+      objetivo_sessao: 'Mobilidade',
+      avaliacao_previa: null, procedimentos_realizados: 'Alongamentos',
+      exercicios_parametros: null, resposta_paciente: 'Boa tolerância',
+      orientacoes: null, plano_proxima_sessao: null,
+      diagnostico_fisioterapeutico: null, prognostico: null,
+      plano_terapeutico: null, observacoes: null,
+    });
+    apiMock.historicoCorrecoes.mockResolvedValue([{
+      sessao_clinica_id: ids.anamnese,
+      corrigido_por_usuario_id: 'usuario-teste',
+      campos_alterados: ['procedimentos_realizados'],
+      dados_anteriores: { procedimentos_realizados: 'Mobilidade inicial' },
+      dados_novos: { procedimentos_realizados: 'Alongamentos' },
+      criado_em: '2026-11-23T14:00:00.000Z',
+    }]);
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar registro' }));
+    expect(await screen.findByText('Correções e histórico da evolução')).toBeTruthy();
+    expect(await screen.findByText('Antes: Mobilidade inicial')).toBeTruthy();
+    expect(screen.getByText('Depois: Alongamentos')).toBeTruthy();
+    expect(apiMock.historicoCorrecoes).toHaveBeenCalledWith(
+      { organizacaoId: ids.org, areaId: ids.area }, ids.anamnese,
+    );
+    expect(screen.queryByText('corrigido_por_usuario_id')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Corrigir evolução' }));
+    expect(screen.queryByLabelText('Data e hora do atendimento *')).toBeNull();
+    fireEvent.change(screen.getByLabelText('O que foi trabalhado na sessão'), {
+      target: { value: 'Treino de marcha revisado' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar correção auditada' }));
+    await waitFor(() => expect(apiMock.corrigirEvolucao).toHaveBeenCalledOnce());
+    expect(apiMock.corrigirEvolucao).toHaveBeenCalledWith(
+      { organizacaoId: ids.org, areaId: ids.area }, ids.anamnese,
+      { procedimentos_realizados: 'Treino de marcha revisado' },
+    );
+    expect(screen.getByText('Correção registrada no histórico clínico.')).toBeTruthy();
+  });
+
+  it('não envia uma correção vazia ao backend', async () => {
+    apiMock.timeline.mockResolvedValue([{
+      id: ids.anamnese, tipo: 'EVOLUCAO', paciente_id: ids.paciente,
+      data: '2026-11-22T17:30:00.000Z', profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício', titulo: 'Evolução da sessão',
+      versao: null, estado: null,
+    }]);
+    apiMock.consultarEvolucao.mockResolvedValue({
+      id: ids.anamnese, cliente_id: ids.paciente, profissional_id: ids.profissional,
+      cliente_nome: 'Paciente Teste A', profissional_nome: 'Profissional fictício',
+      data_sessao: '2026-11-22T17:30:00.000Z',
+      evolucao: 'Evolução fictícia', objetivo_sessao: 'Mobilidade',
+      procedimentos_realizados: 'Alongamentos', resposta_paciente: 'Boa tolerância',
+    });
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar registro' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Corrigir evolução' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar correção auditada' }));
+    expect(await screen.findByText('Altere pelo menos um campo para registrar uma correção.')).toBeTruthy();
+    expect(apiMock.corrigirEvolucao).not.toHaveBeenCalled();
+  });
 });
