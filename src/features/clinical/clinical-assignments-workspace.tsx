@@ -6,7 +6,7 @@ import { Link2, ShieldCheck } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/features/auth/session';
-import { clientes, profissionais } from '@/lib/api';
+import { ApiError, clientes, profissionais } from '@/lib/api';
 import { vinculosClinicosApi } from './clinical-assignments-api';
 import type { ClinicalContext } from './clinical-api';
 
@@ -24,6 +24,7 @@ export function ClinicalAssignmentsWorkspace() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
+  const [profissionalAutorizado, setProfissionalAutorizado] = useState<string | null>(null);
 
   const organizationId = organization?.id ?? '';
   const areaId = area?.id ?? '';
@@ -63,8 +64,17 @@ export function ClinicalAssignmentsWorkspace() {
       });
       setMensagem(sucesso);
       setMotivo('');
-    } catch {
-      setErro('Não foi possível atualizar o vínculo. Confira as permissões e os dados informados.');
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'VINCULO_CLINICO_INVALIDO') {
+        setErro(
+          'Vínculo não autorizado: confirme se paciente e profissional estão ativos nesta área ' +
+          'e se o profissional possui acesso clínico habilitado.',
+        );
+      } else if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+        setErro(error.message);
+      } else {
+        setErro('Não foi possível atualizar o vínculo. Verifique a conexão e tente novamente.');
+      }
     } finally {
       setSalvando(false);
     }
@@ -103,7 +113,7 @@ export function ClinicalAssignmentsWorkspace() {
             <label>
               <span className="field-label">Fisioterapeuta *</span>
               <select className="select-field" value={profissionalId}
-                onChange={(e) => setProfissionalId(e.target.value)}
+                onChange={(e) => { setProfissionalId(e.target.value); setProfissionalAutorizado(null); setMensagem(''); setErro(''); }}
                 disabled={!listaProfissionais.data || salvando}>
                 <option value="">Selecione um profissional autorizado</option>
                 {listaProfissionais.data?.map((item) => (
@@ -113,6 +123,35 @@ export function ClinicalAssignmentsWorkspace() {
             </label>
           </div>
 
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h2 className="text-sm font-semibold">1. Habilitar acesso clínico do profissional</h2>
+            <p className="text-sm text-slate-700">
+              O profissional precisa ter um usuário ativo vinculado e estar autorizado a acessar
+              dados clínicos nesta área. Essa autorização é independente da vinculação com o paciente.
+              Somente o administrador pode concedê-la.
+            </p>
+            <Button type="button" variant="outline" disabled={!profissionalId || salvando || profissionalAutorizado === profissionalId}
+              onClick={() => {
+                if (!window.confirm('Autorizar o profissional selecionado a acessar dados clínicos desta área?')) return;
+                void executar(
+                  async () => {
+                    await vinculosClinicosApi.autorizarAcessoClinico(contexto, profissionalId);
+                    setProfissionalAutorizado(profissionalId);
+                  },
+                  'Acesso clínico autorizado. Agora você pode conceder o vínculo ao paciente.',
+                );
+              }}>
+              <ShieldCheck size={16} aria-hidden />
+              {profissionalAutorizado === profissionalId ? 'Acesso clínico autorizado' : 'Autorizar acesso clínico'}
+            </Button>
+            <p className="text-xs text-slate-600">
+              Se o acesso já tiver sido autorizado anteriormente, prossiga para o vínculo.
+              Se aparecer uma mensagem sobre usuário não vinculado, primeiro associe uma conta
+              ao cadastro do profissional.
+            </p>
+          </div>
+
+          <h2 className="text-sm font-semibold">2. Vincular paciente ao profissional</h2>
           <Button disabled={!clienteId || !profissionalId || salvando}
             onClick={() => void executar(
               () => vinculosClinicosApi.conceder(contexto, clienteId, profissionalId),
