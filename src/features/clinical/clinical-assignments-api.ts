@@ -32,6 +32,15 @@ function validarContexto(contexto: ClinicalContext) {
 }
 
 export const vinculosClinicosApi = {
+  // Consulta administrativa restrita: apenas confirma a identidade profissional,
+  // sem carregar nenhum dado do prontuário.
+  consultarUsuarioProfissional(contexto: ClinicalContext, profissionalId: string) {
+    const id = validarId(profissionalId);
+    return api<{ profissionalId: string; usuario: { id: string; nome: string } | null; vinculoAtivo: boolean }>(
+      `/profissionais/${id}/usuario`, {}, validarContexto(contexto),
+    );
+  },
+
   // A autorização clínica é uma ação administrativa independente do vínculo
   // paciente-profissional. O backend exige usuário profissional ativo e audita.
   autorizarAcessoClinico(contexto: ClinicalContext, profissionalId: string) {
