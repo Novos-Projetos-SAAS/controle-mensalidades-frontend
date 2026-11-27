@@ -114,6 +114,10 @@ export function EvolucaoForm({
       evolucao_clinica: '',
       orientacoes: '',
       plano_proxima_sessao: '',
+      diagnostico_fisioterapeutico: '',
+      prognostico: '',
+      plano_terapeutico: '',
+      observacoes: '',
       ...initialValues,
     },
   });
@@ -167,6 +171,22 @@ export function EvolucaoForm({
       </Field>
       <Field label="Conduta planejada para próxima sessão">
         <textarea {...form.register('plano_proxima_sessao')} className={areaClasse} />
+      </Field>
+      <div className="border-t border-slate-200 pt-3">
+        <h3 className="text-base font-semibold">Avaliação e planejamento terapêutico complementar</h3>
+        <p className="mt-1 text-sm text-slate-600">Preencha conforme a avaliação profissional. Estes campos são opcionais.</p>
+      </div>
+      <Field label="Diagnóstico fisioterapêutico">
+        <textarea {...form.register('diagnostico_fisioterapeutico')} className={areaClasse} />
+      </Field>
+      <Field label="Prognóstico fisioterapêutico">
+        <textarea {...form.register('prognostico')} className={areaClasse} />
+      </Field>
+      <Field label="Plano terapêutico">
+        <textarea {...form.register('plano_terapeutico')} className={areaClasse} />
+      </Field>
+      <Field label="Observações clínicas">
+        <textarea {...form.register('observacoes')} className={areaClasse} />
       </Field>
       <Button type="submit">{demo ? 'Salvar evolução fictícia' : clinical ? 'Salvar evolução na homologação' : 'Validar rascunho da evolução'}</Button>
     </form>
