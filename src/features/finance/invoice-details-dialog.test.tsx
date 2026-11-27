@@ -58,11 +58,12 @@ describe('modal renovado de detalhes da mensalidade', () => {
   it('mostra valores separados, histórico, vencimento e painel de link', () => {
     show(mensalidade);
     const dialog = screen.getByRole('dialog', { name: 'Detalhes da mensalidade' });
-    expect(dialog.textContent).toContain('Cliente fictício E2E');
-    expect(dialog.textContent).toContain('Parcialmente paga');
-    expect(dialog.textContent).toContain('R$ 150,00');
-    expect(dialog.textContent).toContain('R$ 50,00');
-    expect(dialog.textContent).toContain('R$ 100,00');
+    const normalizedText = dialog.textContent?.replace(/\u00a0/g, ' ');
+    expect(normalizedText).toContain('Cliente fictício E2E');
+    expect(normalizedText).toContain('Parcialmente paga');
+    expect(normalizedText).toContain('R$ 150,00');
+    expect(normalizedText).toContain('R$ 50,00');
+    expect(normalizedText).toContain('R$ 100,00');
     expect(dialog.querySelectorAll('li')).toHaveLength(1);
     expect(screen.getByRole('region', { name: 'Pagamento online' })).toBeTruthy();
   });
