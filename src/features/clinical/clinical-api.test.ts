@@ -30,6 +30,10 @@ const evolucao: EvolucaoDraft = {
   evolucao_clinica: 'Evolucao ficticia',
   orientacoes: '',
   plano_proxima_sessao: '',
+  diagnostico_fisioterapeutico: 'Diagnóstico fictício de mobilidade',
+  prognostico: 'Melhora funcional prevista em teste',
+  plano_terapeutico: 'Programa fictício de mobilidade',
+  observacoes: 'Sem intercorrências fictícias',
 };
 
 function simularSucesso(dados: unknown) {
@@ -176,6 +180,10 @@ describe('contrato de API do prontuario protegido', () => {
       exercicios_parametros: '3 series de teste',
       resposta_paciente: 'Boa tolerancia ficticia',
       evolucao: 'Evolucao ficticia',
+      diagnostico_fisioterapeutico: 'Diagnóstico fictício de mobilidade',
+      prognostico: 'Melhora funcional prevista em teste',
+      plano_terapeutico: 'Programa fictício de mobilidade',
+      observacoes: 'Sem intercorrências fictícias',
     });
   });
 
