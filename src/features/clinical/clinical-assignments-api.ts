@@ -32,6 +32,17 @@ function validarContexto(contexto: ClinicalContext) {
 }
 
 export const vinculosClinicosApi = {
+  // A autorização clínica é uma ação administrativa independente do vínculo
+  // paciente-profissional. O backend exige usuário profissional ativo e audita.
+  autorizarAcessoClinico(contexto: ClinicalContext, profissionalId: string) {
+    const id = validarId(profissionalId);
+    return api<{ profissionalId: string; areaNegocioId: string; autorizado: boolean }>(
+      `/profissionais/${id}/acesso-clinico`,
+      { method: 'PATCH', body: JSON.stringify({ autorizado: true }) },
+      validarContexto(contexto),
+    );
+  },
+
   listar(contexto: ClinicalContext, pacienteId: string) {
     return api<VinculoClinico[]>(
       `/vinculos-clinicos/paciente/${validarId(pacienteId)}`,
