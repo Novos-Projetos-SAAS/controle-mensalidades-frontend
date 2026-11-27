@@ -7,7 +7,7 @@ import { ErrorState, LoadingState } from '@/components/query-state';
 import { ChargePanel } from '@/features/payments/charge-panel';
 import { formatDate } from '@/lib/format';
 import { cents, financeErrorMessage, money } from './finance-utils';
-import { useFinanceQuery, type FinanceContext, type Mensalidade } from './finance-api';
+import { financeApi, useFinanceQuery, type FinanceContext, type Mensalidade } from './finance-api';
 
 const statusColors: Record<Mensalidade['status'], string> = {
   PAGA: 'border-emerald-200 bg-emerald-50 text-emerald-800',
@@ -38,7 +38,7 @@ export function InvoiceDetailsDialog({
   onChanged: () => void;
 }) {
   const detail = useFinanceQuery(context, ['mensalidade', invoiceId], (signal) =>
-    import('./finance-api').then(({ financeApi }) => financeApi.mensalidade(context, invoiceId, signal)),
+    financeApi.mensalidade(context, invoiceId, signal),
   );
   const invoice = detail.data;
   const payable =
