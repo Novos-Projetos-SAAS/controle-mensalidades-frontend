@@ -26,7 +26,10 @@ async function forward(request: NextRequest, { params }: Context) {
   if (
     ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) &&
     path[0] === 'v1' &&
-    ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos'].includes(path[1] ?? '')
+    (
+      ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos'].includes(path[1] ?? '') ||
+      (path[1] === 'profissionais' && path[3] === 'acesso-clinico')
+    )
   ) {
     try {
       const origem = request.headers.get('origin');
