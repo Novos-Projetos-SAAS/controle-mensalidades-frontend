@@ -335,7 +335,7 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Detalhes' }).click();
   const updatedInvoice = page.getByRole('dialog');
-  await expect(updatedInvoice.getByText('Paga')).toBeVisible();
+  await expect(updatedInvoice.getByText('Paga', { exact: true })).toBeVisible();
   await expect(updatedInvoice.getByText(/PIX/)).toBeVisible();
   await expect(updatedInvoice.getByRole('listitem')).toHaveCount(1);
   await updatedInvoice.getByRole('button', { name: 'Fechar' }).click();
