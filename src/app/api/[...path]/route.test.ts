@@ -67,7 +67,7 @@ describe('API intermediária em hospedagem', () => {
   it('encaminha PDF de laudo sem cache e preserva headers seguros de download', async () => {
     vi.stubEnv('BACKEND_URL', 'http://localhost:3334');
     const fetchMock = vi.fn(async (_url: URL, _options?: RequestInit) =>
-      new Response(new Blob(['%PDF-1.4'], { type: 'application/pdf' }), {
+      new Response('%PDF-1.4', {
         status: 200, headers: {
           'content-type': 'application/pdf',
           'content-disposition': 'attachment; filename="laudo-fisioterapeutico.pdf"',
