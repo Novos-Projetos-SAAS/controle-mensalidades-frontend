@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkoutUrl,
+  availablePaymentPath,
   parsePaymentReturn,
   platformPaymentUrl,
   shouldPollPayment,
@@ -52,5 +53,29 @@ describe('segurança do pagamento', () => {
     expect(shouldPollPayment('AGUARDANDO_PAGAMENTO', 1, false)).toBe(false);
     for (const status of ['PAGO_VERIFICADO', 'CANCELADO', 'EXPIRADO', 'PAGO_EM_REVISAO'])
       expect(shouldPollPayment(status, 1, true)).toBe(false);
+  });
+});
+
+describe('link de cobrança reutilizável', () => {
+  const path = '/pagamento/' + 'a'.repeat(43);
+  const charge = { status: 'AGUARDANDO_PAGAMENTO', url_plataforma: path };
+
+  it('libera somente o caminho privado de cobrança aguardando pagamento', () => {
+    expect(availablePaymentPath(charge, true)).toBe(path);
+    expect(availablePaymentPath(charge, false)).toBeNull();
+    expect(availablePaymentPath(null, true)).toBeNull();
+  });
+
+  it('bloqueia link expirado, quitado, em revisão ou de outro domínio', () => {
+    for (const status of ['QUITADO', 'PAGO_VERIFICADO', 'PAGO_EM_REVISAO', 'EXPIRADO', 'CRIANDO']) {
+      expect(availablePaymentPath({ ...charge, status }, true)).toBeNull();
+    }
+    for (const url_plataforma of [
+      'https://exemplo.com/pagamento/roubo',
+      '//exemplo.com/pagamento/roubo',
+      '/pagamento/../../login',
+    ]) {
+      expect(availablePaymentPath({ ...charge, url_plataforma }, true)).toBeNull();
+    }
   });
 });
