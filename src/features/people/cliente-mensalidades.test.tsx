@@ -139,7 +139,7 @@ describe('aba financeira de cliente', () => {
         url.includes('clienteId=' + clienteId) && url.includes('status=PENDENTE'))).toBe(true);
     });
     expect(fetchMock.mock.calls.every(([, request]) =>
-      request?.headers?.['x-area-negocio-id'] === contexto.areaId)).toBe(true);
+      new Headers(request?.headers).get('x-area-negocio-id') === contexto.areaId)).toBe(true);
   });
 
   it('trata 403 financeiro sem expor nenhum histórico do cliente', async () => {
