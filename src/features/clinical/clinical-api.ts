@@ -267,7 +267,11 @@ export const clinicalApi = {
     if (dataHoraSessao.slice(0, 10) !== dados.data_sessao) {
       throw new Error('A data e a hora da sessão não correspondem ao formulário.');
     }
-    const { evolucao_clinica, objetivo_sessao, avaliacao_previa, procedimentos_realizados, exercicios_parametros, resposta_paciente, orientacoes, plano_proxima_sessao } = dados;
+    const {
+      evolucao_clinica, objetivo_sessao, avaliacao_previa, procedimentos_realizados,
+      exercicios_parametros, resposta_paciente, orientacoes, plano_proxima_sessao,
+      diagnostico_fisioterapeutico, prognostico, plano_terapeutico, observacoes,
+    } = dados;
     // A autoria e checada no servidor contra o usuario autenticado.
     // Nenhum campo estruturado da sessao e descartado.
     return api<ClinicalSessionDetail>('/sessoes-clinicas', json({
@@ -282,6 +286,10 @@ export const clinicalApi = {
       resposta_paciente,
       ...(orientacoes ? { orientacoes } : {}),
       ...(plano_proxima_sessao ? { plano_proxima_sessao } : {}),
+      ...(diagnostico_fisioterapeutico ? { diagnostico_fisioterapeutico } : {}),
+      ...(prognostico ? { prognostico } : {}),
+      ...(plano_terapeutico ? { plano_terapeutico } : {}),
+      ...(observacoes ? { observacoes } : {}),
     }), context(c));
   },
 
