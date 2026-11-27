@@ -81,6 +81,12 @@ describe('contrato de API do prontuario protegido', () => {
       'x-organizacao-id': org,
       'x-area-negocio-id': area,
     });
+    await expect(clinicalApi.timeline(ctx, paciente, 50, 50)).resolves.toEqual([]);
+    expect(fetchMock.mock.calls[1]![0]).toBe(
+      `/api/v1/prontuario/pacientes/${paciente}/historico?limite=50&deslocamento=50`,
+    );
+    expect(() => clinicalApi.timeline(ctx, paciente, 50, -1)).toThrow('Página do histórico');
+    expect(() => clinicalApi.timeline(ctx, paciente, 50, 10001)).toThrow('Página do histórico');
   });
 
   it('não permite tentativa de URL injection, contexto vazio nem limite fora do contrato', async () => {
