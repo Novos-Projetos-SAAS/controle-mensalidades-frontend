@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState } from '@/components/query-state';
 import { financeKey, useFinanceQuery, type FinanceContext } from '@/features/finance/finance-api';
-import { paymentApi } from './payments-api';
+import { paymentApi, type PaymentProvider } from './payments-api';
 import { paymentStatus, platformPaymentUrl } from './payment-utils';
 import { financeErrorMessage } from '@/features/finance/finance-utils';
 
@@ -24,18 +24,27 @@ export function ChargePanel({
   const query = useFinanceQuery(context, ['cobranca', mensalidadeId], (signal) =>
     paymentApi.charge(context, mensalidadeId, signal),
   );
+  const integrations = useFinanceQuery(context, ['payment-integrations'], (signal) =>
+    paymentApi.integrations(context, signal),
+  );
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider | null>(null);
+  const provider = selectedProvider ?? integrations.data?.provedor_padrao ?? 'INFINITEPAY';
+  const providerActive =
+    provider === 'ABACATEPAY'
+      ? integrations.data?.abacatepay.ativo
+      : integrations.data?.infinitepay.ativo;
   const locked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   async function generate() {
-    if (locked.current) return;
+    if (locked.current || !providerActive || uncertain) return;
     locked.current = true;
     setBusy(true);
     setError(null);
     try {
-      const result = await paymentApi.generate(context, mensalidadeId);
+      const result = await paymentApi.generate(context, mensalidadeId, provider);
       queryClient.setQueryData(queryKey, result);
       onChanged();
     } catch (err) {
@@ -47,14 +56,24 @@ export function ChargePanel({
     }
   }
   async function check() {
+    if (locked.current) return;
+    locked.current = true;
     setBusy(true);
-    const result = await query.refetch();
-    if (!result.isError) {
-      setUncertain(false);
-      setError(null);
-      onChanged();
+    try {
+      if (query.data?.provedor === 'ABACATEPAY')
+        await paymentApi.reconcile(context, query.data.id, {});
+      const result = await query.refetch();
+      if (!result.isError) {
+        setUncertain(false);
+        setError(null);
+        onChanged();
+      }
+    } catch (err) {
+      setError(financeErrorMessage(err, 'Não foi possível conferir o pagamento. Tente novamente.'));
+    } finally {
+      locked.current = false;
+      setBusy(false);
     }
-    setBusy(false);
   }
   const charge = query.data;
   const path =
@@ -81,6 +100,9 @@ export function ChargePanel({
         <>
           {charge ? (
             <>
+              <p className="text-sm text-slate-600">
+                {charge.provedor === 'ABACATEPAY' ? 'AbacatePay' : 'InfinitePay'}
+              </p>
               <p className="text-sm font-medium">
                 {paymentStatus[charge.status]?.title || 'Situação indisponível'}
               </p>
@@ -125,9 +147,36 @@ export function ChargePanel({
             <p className="text-sm text-slate-600">Nenhum link de pagamento gerado.</p>
           )}
           {payable && (!charge || charge.status === 'EXPIRADO') && (
-            <Button onClick={generate} disabled={busy || uncertain}>
-              {busy ? 'Gerando...' : 'Gerar link de pagamento'}
-            </Button>
+            <div className="space-y-3">
+              {integrations.isPending ? (
+                <LoadingState rows={1} />
+              ) : integrations.isError ? (
+                <ErrorState
+                  message="Não foi possível carregar os provedores de pagamento."
+                  retry={() => integrations.refetch()}
+                />
+              ) : (
+                <label className="block">
+                  <span className="field-label">Provedor da cobrança</span>
+                  <select
+                    className="select-field"
+                    value={provider}
+                    disabled={busy || uncertain}
+                    onChange={(event) => setSelectedProvider(event.target.value as PaymentProvider)}
+                  >
+                    <option value="INFINITEPAY" disabled={!integrations.data?.infinitepay.ativo}>
+                      InfinitePay
+                    </option>
+                    <option value="ABACATEPAY" disabled={!integrations.data?.abacatepay.ativo}>
+                      AbacatePay
+                    </option>
+                  </select>
+                </label>
+              )}
+              <Button onClick={generate} disabled={busy || uncertain || !providerActive}>
+                {busy ? 'Gerando...' : 'Gerar link de pagamento'}
+              </Button>
+            </div>
           )}
           <Button variant="outline" onClick={check} disabled={busy}>
             Conferir pagamento

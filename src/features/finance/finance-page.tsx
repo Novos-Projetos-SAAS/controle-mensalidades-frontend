@@ -21,7 +21,8 @@ import {
 import { currentPeriod, financeErrorMessage, money } from './finance-utils';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
-import { InfinitePaySettings } from '@/features/payments/infinitepay-settings';
+import { PaymentIntegrations } from '@/features/payments/payment-integrations';
+import { RecurrencePanel } from '@/features/payments/recurrence-panel';
 import { ChargePanel } from '@/features/payments/charge-panel';
 
 type Tab = 'planos' | 'assinaturas' | 'mensalidades' | 'integracao';
@@ -247,7 +248,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                   ? 'Assinaturas'
                   : value === 'planos'
                     ? 'Planos'
-                    : 'InfinitePay'}
+                    : 'Integrações de pagamento'}
             </button>
           ))}
         </div>
@@ -264,7 +265,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
 
       {tab === 'integracao' && (
         <section role="tabpanel" className="mt-5">
-          <InfinitePaySettings context={context} />
+          <PaymentIntegrations context={context} />
         </section>
       )}
       {tab === 'planos' && (
@@ -682,6 +683,12 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                     </div>
                   )}
                 </dl>
+                <RecurrencePanel
+                  key={subscriptionDetail.data.id}
+                  context={context}
+                  subscription={subscriptionDetail.data}
+                  onChanged={refresh}
+                />
                 {subscriptionDetail.data.status === 'ATIVA' && (
                   <Button
                     className="mt-6 w-full"

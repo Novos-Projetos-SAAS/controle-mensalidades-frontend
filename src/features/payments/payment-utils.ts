@@ -1,14 +1,19 @@
 export type PaymentEvidence = { order_nsu: string; transaction_nsu: string; slug: string };
 export const isPaymentToken = (value: string) => /^[A-Za-z0-9_-]{43}$/.test(value);
 
-export function checkoutUrl(value: string | null | undefined): string | null {
+export function checkoutUrl(
+  value: string | null | undefined,
+  provider: 'INFINITEPAY' | 'ABACATEPAY' = 'INFINITEPAY',
+): string | null {
   try {
     const url = new URL(value ?? '');
     return url.protocol === 'https:' &&
       !url.username &&
       !url.password &&
       !url.port &&
-      ['buy.infinitepay.io', 'checkout.infinitepay.io'].includes(url.hostname)
+      (provider === 'ABACATEPAY'
+        ? url.hostname === 'app.abacatepay.com' && /^\/pay\/[^/]+\/?$/.test(url.pathname)
+        : ['buy.infinitepay.io', 'checkout.infinitepay.io'].includes(url.hostname))
       ? url.href
       : null;
   } catch {

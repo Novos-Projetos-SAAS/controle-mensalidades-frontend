@@ -122,3 +122,15 @@ describe('página privada', () => {
     visibility.mockRestore();
   });
 });
+
+it('identifica AbacatePay e usa somente checkout oficial do provedor informado', async () => {
+  vi.mocked(paymentApi.publicCharge).mockResolvedValue({
+    ...charge,
+    provedor: 'ABACATEPAY',
+    checkout_url: 'https://app.abacatepay.com/pay/bill_test',
+  });
+  render(<PaymentPage token={token} />);
+  const link = await screen.findByRole('link', { name: 'Pagar com AbacatePay' });
+  expect(link.getAttribute('href')).toBe('https://app.abacatepay.com/pay/bill_test');
+  expect(screen.queryByRole('link', { name: 'Pagar com InfinitePay' })).toBeNull();
+});

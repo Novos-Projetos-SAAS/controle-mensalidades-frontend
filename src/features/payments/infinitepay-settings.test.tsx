@@ -1,12 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { InfinitePaySettings } from './infinitepay-settings';
 import { ChargePanel } from './charge-panel';
 import { paymentApi } from './payments-api';
 
 vi.mock('./payments-api', () => ({
-  paymentApi: { settings: vi.fn(), saveSettings: vi.fn(), charge: vi.fn(), generate: vi.fn() },
+  paymentApi: {
+    settings: vi.fn(),
+    saveSettings: vi.fn(),
+    charge: vi.fn(),
+    generate: vi.fn(),
+    integrations: vi
+      .fn()
+      .mockResolvedValue({
+        provedor_padrao: 'INFINITEPAY',
+        infinitepay: { ativo: true },
+        abacatepay: { ativo: true },
+      }),
+    reconcile: vi.fn(),
+  },
 }));
 const context = { organizacaoId: 'org', areaId: 'area' };
 const settings = {
@@ -62,25 +75,6 @@ describe('administração InfinitePay', () => {
     expect(screen.getByLabelText('Nova chave da conta')).toBeTruthy();
   });
 
-  it('mostra outras opções em breve, desligadas e sem alterar a configuração', async () => {
-    vi.mocked(paymentApi.settings).mockResolvedValue(settings);
-    render(<InfinitePaySettings context={context} />, { wrapper });
-    const card = await screen.findByRole('region', { name: 'Outras opções de pagamento' });
-    expect(within(card).getByText('Em breve')).toBeTruthy();
-    expect(
-      within(card).getByText('Novas formas de receber pagamentos estarão disponíveis futuramente.'),
-    ).toBeTruthy();
-    const control = within(card).getByRole('switch', {
-      name: 'Outras opções de pagamento',
-    }) as HTMLButtonElement;
-    expect(control.disabled).toBe(true);
-    expect(control.getAttribute('aria-checked')).toBe('false');
-    fireEvent.click(control);
-    fireEvent.keyDown(control, { key: ' ' });
-    expect(control.getAttribute('aria-checked')).toBe('false');
-    expect(paymentApi.saveSettings).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Ativar InfinitePay')).toBeTruthy();
-  });
   it('mantém a recuperação da cobrança com orientação simples após erro técnico', async () => {
     vi.mocked(paymentApi.charge).mockResolvedValue(null);
     vi.mocked(paymentApi.generate).mockRejectedValue(new Error('Webhook payload inválido'));
@@ -167,4 +161,40 @@ describe('administração InfinitePay', () => {
     expect(link.getAttribute('href')).toContain('/pagamento/');
     expect(screen.getByRole('button', { name: 'Copiar link para o cliente' })).toBeTruthy();
   });
+});
+
+it('seleciona AbacatePay para a mensalidade e concilia com o provedor sem marcar pago no navegador', async () => {
+  vi.mocked(paymentApi.charge).mockResolvedValue(null);
+  vi.mocked(paymentApi.generate).mockResolvedValue({
+    status: 'AGUARDANDO_PAGAMENTO',
+    valor: '50.00',
+    vencimento_em: '2026-11-30',
+    checkout_url: 'https://app.abacatepay.com/pay/bill_test',
+    expira_em: null,
+    id: 'charge-a',
+    provedor: 'ABACATEPAY',
+    url_plataforma: `/pagamento/${'a'.repeat(43)}`,
+    ultimo_erro: null,
+  });
+  render(
+    <ChargePanel context={context} mensalidadeId="m-abacate" payable onChanged={() => undefined} />,
+    { wrapper },
+  );
+  fireEvent.change(await screen.findByLabelText('Provedor da cobrança'), {
+    target: { value: 'ABACATEPAY' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Gerar link de pagamento' }));
+  await screen.findByRole('link', { name: 'Abrir página de pagamento' });
+  expect(paymentApi.generate).toHaveBeenCalledWith(context, 'm-abacate', 'ABACATEPAY');
+  vi.mocked(paymentApi.reconcile).mockResolvedValue({
+    status: 'AGUARDANDO_PAGAMENTO',
+    valor: '50.00',
+    vencimento_em: '2026-11-30',
+    checkout_url: null,
+    expira_em: null,
+    provedor: 'ABACATEPAY',
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Conferir pagamento' }));
+  await waitFor(() => expect(paymentApi.reconcile).toHaveBeenCalledWith(context, 'charge-a', {}));
+  expect(screen.queryByText('Pagamento confirmado')).toBeNull();
 });
