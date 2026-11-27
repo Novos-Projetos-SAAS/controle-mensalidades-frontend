@@ -18,14 +18,15 @@ import {
   type Filtros,
   type Pagina,
 } from './finance-api';
-import { cents, currentPeriod, financeErrorMessage, money } from './finance-utils';
+import { currentPeriod, financeErrorMessage, money } from './finance-utils';
 import { FinanceIndicators } from './finance-indicators';
 import { downloadFinanceCsv } from './finance-export';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
+import { InvoiceDetailsDialog } from './invoice-details-dialog';
+import { InvoiceLinkShortcut } from '@/features/payments/invoice-link-shortcut';
 import { PaymentIntegrations } from '@/features/payments/payment-integrations';
 import { RecurrencePanel } from '@/features/payments/recurrence-panel';
-import { ChargePanel } from '@/features/payments/charge-panel';
 
 type Tab = 'planos' | 'assinaturas' | 'mensalidades' | 'integracao';
 const statusClass: Record<string, string> = {
@@ -142,12 +143,6 @@ function FinanceContent({ context }: { context: FinanceContext }) {
     ['assinatura', subscriptionId],
     (signal) => financeApi.assinatura(context, subscriptionId!, signal),
     !!subscriptionId,
-  );
-  const invoiceDetail = useFinanceQuery(
-    context,
-    ['mensalidade', invoiceId],
-    (signal) => financeApi.mensalidade(context, invoiceId!, signal),
-    !!invoiceId,
   );
   const changeSubscriptionFilter = (patch: Partial<Filtros>) =>
     setSubscriptionFilters((prev) => ({ ...prev, ...patch, page: 1 }));
@@ -582,11 +577,19 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                       Pago {money(item.valor_pago)} · saldo {money(item.saldo)}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-                    <strong className="text-lg">{money(item.valor_final)}</strong>
-                    <Button variant="outline" onClick={() => setInvoiceId(item.id)}>
-                      Detalhes
-                    </Button>
+                  <div className="flex min-w-0 flex-col gap-3 sm:items-end">
+                    <strong className="text-lg text-slate-900">{money(item.valor_final)}</strong>
+                    <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+                      <InvoiceLinkShortcut context={context} invoice={item} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full shrink-0 whitespace-nowrap sm:w-auto"
+                        onClick={() => setInvoiceId(item.id)}
+                      >
+                        Detalhes <ArrowRight size={16} aria-hidden="true" />
+                      </Button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -750,101 +753,18 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           )}
         </DialogContent>
       </Dialog>
-      <Dialog open={!!invoiceId} onOpenChange={(open) => !open && setInvoiceId(null)}>
-        <DialogContent>
-          <DialogTitle className="display pr-8 text-3xl">Detalhes da mensalidade</DialogTitle>
-          <DialogDescription className="sr-only">
-            Situação e histórico do recebimento.
-          </DialogDescription>
-          {invoiceDetail.isPending ? (
-            <LoadingState rows={2} />
-          ) : invoiceDetail.isError ? (
-            <ErrorState
-              message={financeErrorMessage(
-                invoiceDetail.error,
-                'Não foi possível carregar a mensalidade. Tente novamente.',
-              )}
-              retry={() => invoiceDetail.refetch()}
-            />
-          ) : (
-            invoiceDetail.data && (
-              <>
-                <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                  <div className="col-span-2">
-                    <dt className="text-slate-500">Cliente</dt>
-                    <dd className="font-semibold">{invoiceDetail.data.cliente_nome}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Competência</dt>
-                    <dd>{invoiceDetail.data.competencia.slice(0, 7)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Vencimento</dt>
-                    <dd>{formatDate(invoiceDetail.data.vencimento_em)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Situação</dt>
-                    <dd>{pill(invoiceDetail.data.status)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Valor final</dt>
-                    <dd>{money(invoiceDetail.data.valor_final)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Valor pago</dt>
-                    <dd>{money(invoiceDetail.data.valor_pago)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Saldo</dt>
-                    <dd className="font-semibold">{money(invoiceDetail.data.saldo)}</dd>
-                  </div>
-                </dl>
-                <div className="mt-6 border-t border-slate-200 pt-4">
-                  <h3 className="font-semibold">Recebimentos registrados</h3>
-                  {invoiceDetail.data.pagamentos?.length ? (
-                    <ul className="mt-3 space-y-2">
-                      {invoiceDetail.data.pagamentos.map((payment) => (
-                        <li
-                          key={payment.id}
-                          className="flex flex-wrap justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm"
-                        >
-                          <span>
-                            {formatDate(payment.pago_em)} · {payment.forma_pagamento}
-                          </span>
-                          <strong>{money(payment.valor)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-500">Nenhum recebimento registrado.</p>
-                  )}
-                </div>
-                <ChargePanel
-                  context={context}
-                  mensalidadeId={invoiceDetail.data.id}
-                  payable={
-                    !['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status) &&
-                    cents(invoiceDetail.data.saldo) > BigInt(0)
-                  }
-                  quitada={invoiceDetail.data.status === 'PAGA'}
-                  onChanged={refresh}
-                />
-                {!['PAGA', 'CANCELADA'].includes(invoiceDetail.data.status) && (
-                  <Button
-                    className="mt-6 w-full"
-                    onClick={() => {
-                      setReceiveId(invoiceDetail.data!.id);
-                      setInvoiceId(null);
-                    }}
-                  >
-                    Registrar recebimento
-                  </Button>
-                )}
-              </>
-            )
-          )}
-        </DialogContent>
-      </Dialog>
+      {invoiceId && (
+        <InvoiceDetailsDialog
+          context={context}
+          invoiceId={invoiceId}
+          onClose={() => setInvoiceId(null)}
+          onChanged={refresh}
+          onReceive={(id) => {
+            setReceiveId(id);
+            setInvoiceId(null);
+          }}
+        />
+      )}
     </>
   );
 }
