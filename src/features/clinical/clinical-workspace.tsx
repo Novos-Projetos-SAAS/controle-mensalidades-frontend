@@ -16,6 +16,7 @@ import {
 } from './clinical-forms';
 import type { AnamneseDraft, EvolucaoDraft, LaudoDraft } from './clinical-contracts';
 import { camposClinicosParaLeitura, formatarDataHoraClinica, type TipoLeituraClinica } from './clinical-display';
+import { LaudoPdfActions } from './laudo-pdf-actions';
 
 type Formulario = 'ANAMNESE' | 'EVOLUCAO' | 'LAUDO';
 type DadosForm = AnamneseDraft | EvolucaoDraft | LaudoDraft;
@@ -417,6 +418,16 @@ function ClinicalWorkspaceContext({
                           </div>
                           <p className="text-xs text-slate-600">{versao.estado} · {versao.natureza} · {formatarDataHoraClinica(versao.registrado_em)}</p>
                           {exibirValores(versao.conteudo, entrada.tipo as 'ANAMNESE' | 'LAUDO')}
+                          {entrada.tipo === 'LAUDO' && (
+                            <LaudoPdfActions
+                              key={documento.registro.id + ':' + versao.versao}
+                              contexto={contexto}
+                              documentoId={documento.registro.id}
+                              versao={versao.versao}
+                              estado={versao.estado}
+                              historica={versaoAtual?.versao !== versao.versao}
+                            />
+                          )}
                           <div className="flex flex-wrap gap-2">
                             <Button disabled={salvando} variant="secondary"
                               onClick={() => abrirFormulario(entrada.tipo as 'ANAMNESE' | 'LAUDO', true)}>
@@ -429,7 +440,7 @@ function ClinicalWorkspaceContext({
                             )}
                           </div>
                           {entrada.tipo === 'LAUDO' && <p className="text-xs text-amber-800">
-                            Rascunho técnico: não há emissão nem assinatura digital nesta etapa.
+                            O PDF permite impressão e assinatura física. Nenhuma assinatura digital é emitida.
                           </p>}
                         </>
                       ) : detalhe.data && 'evolucao' in detalhe.data ? (
