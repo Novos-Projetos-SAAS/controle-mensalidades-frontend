@@ -51,6 +51,17 @@ export type Mensalidade = {
   status: 'PENDENTE' | 'PARCIAL' | 'VENCIDA' | 'PAGA' | 'CANCELADA';
   pagamentos?: Pagamento[];
 };
+export type Indicadores = {
+  data_referencia: string;
+  janela_vencimentos_fim: string;
+  mensalidades_com_saldo: string;
+  saldo_total: string;
+  mensalidades_vencidas: string;
+  clientes_inadimplentes: string;
+  saldo_vencido: string;
+  mensalidades_proximos_7_dias: string;
+  saldo_proximos_7_dias: string;
+};
 export type Resumo = {
   clientes_ativos: string;
   profissionais_ativos: string;
@@ -130,6 +141,8 @@ export const financeApi = {
     ),
   mensalidade: (context: FinanceContext, id: string, signal?: AbortSignal) =>
     api<Mensalidade>(`/financeiro/mensalidades/${id}`, { signal }, ctx(context)),
+  indicadores: (context: FinanceContext, signal?: AbortSignal) =>
+    api<Indicadores>('/financeiro/indicadores', { signal }, ctx(context)),
   resumo: (context: FinanceContext, inicio: string, fim: string, signal?: AbortSignal) =>
     api<Resumo>(`/financeiro/resumo?${search({ inicio, fim })}`, { signal }, ctx(context)),
   receber: (

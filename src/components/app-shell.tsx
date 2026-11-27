@@ -14,6 +14,10 @@ import {
   Orbit,
   Download,
   WalletCards,
+  MessageCircle,
+  Building2,
+  ShieldCheck,
+  ClipboardPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession } from '@/features/auth/session';
@@ -25,7 +29,13 @@ const links = [
   { href: '/', label: 'Visão geral', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/profissionais', label: 'Profissionais', icon: BriefcaseBusiness },
+  ...(process.env.NODE_ENV === 'development'
+    ? [{ href: '/prontuario-demo', label: 'Prontuário (treinamento)', icon: ClipboardPlus }]
+    : []),
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
+  { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
+  { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2 },
+  { href: '/configuracoes/usuarios', label: 'Usuários e Permissões', icon: ShieldCheck },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -77,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </p>
       <nav aria-label="Navegação principal" className="space-y-1">
         {links
-          .filter((link) => link.href !== '/financeiro' || organization?.perfil === 'ADMINISTRADOR')
+          .filter((link) => !['/financeiro', '/configuracoes/whatsapp', '/configuracoes/usuarios'].includes(link.href) || organization?.perfil === 'ADMINISTRADOR')
           .map((link) => (
             <Link
               key={link.href}
@@ -126,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen lg:flex">
       <InstallHelp open={installOpen} onOpenChange={setInstallOpen} />
-      <aside className="hidden w-[252px] shrink-0 flex-col border-r border-slate-200 bg-white p-5 lg:fixed lg:inset-y-0 lg:flex">
+      <aside className="hidden w-[252px] shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white p-5 lg:fixed lg:inset-y-0 lg:flex">
         {nav}
       </aside>
       <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>

@@ -148,6 +148,17 @@ async function setup() {
       { cliente_id: fixture.clientA2, area_negocio_id: fixture.areaA2, ativo: true },
       { cliente_id: fixture.clientB1, area_negocio_id: fixture.areaB1, ativo: true },
     ]);
+    await tx('mensagens').insert({
+      organizacao_id: fixture.orgA,
+      area_negocio_id: fixture.areaA2,
+      cliente_id: fixture.clientA2,
+      canal: 'WHATSAPP',
+      destinatario: 'destinatario-fixture',
+      tipo: 'WHATSAPP_COBRANCA_D+3',
+      status: 'ENVIADA',
+      modo_processamento: 'SIMULADO',
+      enviado_em: '2026-11-15T12:00:00.000Z',
+    });
     await tx('profissionais').insert([
       {
         id: fixture.professionalA1,
@@ -217,6 +228,8 @@ async function cleanup() {
       await tx('contas_receber').select('id').whereIn('organizacao_id', orgIds)
     ).map((row) => row.id);
     await tx('registros_auditoria').whereIn('organizacao_id', orgIds).del();
+    await tx('mensagens').whereIn('organizacao_id', orgIds).del();
+    await tx('integracoes_whatsapp').whereIn('organizacao_id', orgIds).del();
     if (monthlyIds.length)
       await tx('historico_mensalidades').whereIn('mensalidade_id', monthlyIds).del();
     if (accountIds.length) {

@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
         ],
       },
-      ...['/', '/login', '/clientes', '/profissionais', '/financeiro', '/api/:path*'].map(
+      ...['/', '/login', '/clientes', '/profissionais', '/financeiro', '/configuracoes/whatsapp', '/configuracoes/organizacoes', '/configuracoes/usuarios', '/api/:path*'].map(
         (source) => ({
           source,
           headers: [{ key: 'Cache-Control', value: 'private, no-store' }],

@@ -23,6 +23,10 @@ export type Cliente = Pessoa & {
   uf?: string | null;
   observacao?: string | null;
   aceite_whatsapp?: boolean;
+  aceite_whatsapp_em?: string | null;
+  origem_aceite_whatsapp?: string | null;
+  opt_out_whatsapp_em?: string | null;
+  origem_opt_out_whatsapp?: string | null;
 };
 export type Profissional = Pessoa & {
   conselho: string | null;
@@ -42,14 +46,16 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(
+export type ApiResponse<T> = { data: T; status: number };
+
+export async function apiWithStatus<T>(
   path: string,
   options: RequestInit = {},
   context?: { organizacaoId?: string; areaId?: string },
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   let response: Response;
   try {
-    response = await fetch(`/api/v1${path}`, {
+    response = await fetch('/api/v1' + path, {
       ...options,
       credentials: 'same-origin',
       cache: 'no-store',
@@ -77,10 +83,17 @@ export async function api<T>(
       error?.codigo,
     );
   }
-  if (Array.isArray(payload)) return payload as T;
-  return (payload as ApiEnvelope<T>).data;
+  const data = Array.isArray(payload) ? payload : (payload as ApiEnvelope<T> | null)?.data;
+  return { data: data as T, status: response.status };
 }
 
+export async function api<T>(
+  path: string,
+  options: RequestInit = {},
+  context?: { organizacaoId?: string; areaId?: string },
+): Promise<T> {
+  return (await apiWithStatus<T>(path, options, context)).data;
+}
 export const login = (email: string, senha: string) =>
   api<Sessao>('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) });
 export const me = () => api<Sessao>('/auth/me');

@@ -19,6 +19,8 @@ import {
   type Pagina,
 } from './finance-api';
 import { currentPeriod, financeErrorMessage, money } from './finance-utils';
+import { FinanceIndicators } from './finance-indicators';
+import { downloadFinanceCsv } from './finance-export';
 import { GenerateMonthlyForm, PlanForm, SubscriptionForm } from './finance-forms';
 import { ReceiveDialog } from './receive-dialog';
 import { InfinitePaySettings } from '@/features/payments/infinitepay-settings';
@@ -101,6 +103,9 @@ function FinanceContent({ context }: { context: FinanceContext }) {
 
   const summary = useFinanceQuery(context, ['resumo', period.inicio, period.fim], (signal) =>
     financeApi.resumo(context, period.inicio, period.fim, signal),
+  );
+  const indicators = useFinanceQuery(context, ['indicadores'], (signal) =>
+    financeApi.indicadores(context, signal),
   );
   const plans = useFinanceQuery(
     context,
@@ -230,6 +235,31 @@ function FinanceContent({ context }: { context: FinanceContext }) {
           )
         )}
       </section>
+      {indicators.isPending ? (
+        <div className="mt-5"><LoadingState rows={2} /></div>
+      ) : indicators.isError ? (
+        <div className="mt-5">
+          <ErrorState message={indicators.error.message} retry={() => indicators.refetch()} />
+        </div>
+      ) : indicators.data ? (
+        <FinanceIndicators
+          data={indicators.data}
+          onOverdue={() => {
+            setTab('mensalidades');
+            setInvoiceFilters({ page: 1, status: 'VENCIDA' });
+            setInvoiceSearch('');
+          }}
+          onUpcoming={() => {
+            setTab('mensalidades');
+            setInvoiceFilters({
+              page: 1,
+              vencimentoDe: indicators.data.data_referencia,
+              vencimentoAte: indicators.data.janela_vencimentos_fim,
+            });
+            setInvoiceSearch('');
+          }}
+        />
+      ) : null}
       <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções financeiras">
           {(['mensalidades', 'assinaturas', 'planos', 'integracao'] as Tab[]).map((value) => (
@@ -429,6 +459,16 @@ function FinanceContent({ context }: { context: FinanceContext }) {
 
       {tab === 'mensalidades' && (
         <section role="tabpanel" className="mt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-600">
+              Exportação CSV: somente os resultados visíveis nesta página, conforme os filtros.
+            </p>
+            <Button type="button" variant="outline"
+              disabled={!visibleInvoices.length || invoices.isFetching}
+              onClick={() => downloadFinanceCsv(visibleInvoices)}>
+              Exportar página (CSV)
+            </Button>
+          </div>
           <div className="surface mb-4 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
             <label>
               <span className="field-label">Situação</span>

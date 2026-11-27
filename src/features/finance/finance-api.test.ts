@@ -31,6 +31,22 @@ describe('API financeira', () => {
       financeKey({ organizacaoId: 'org-A', areaId: 'area-B' }),
     );
   });
+  it('consulta indicadores com o escopo isolado, sem parametros de pagamento', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { saldo_total: '120.00', saldo_vencido: '50.00' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await financeApi.indicadores(context);
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toContain('/api/v1/financeiro/indicadores');
+    expect(request.method).toBeUndefined();
+    expect(request.headers).toMatchObject({
+      'x-organizacao-id': context.organizacaoId,
+      'x-area-negocio-id': context.areaId,
+    });
+    expect(request.cache).toBe('no-store');
+  });
   it('envia chave de idempotência e o mesmo corpo recebido pela função', async () => {
     const fetchMock = vi
       .fn()

@@ -100,3 +100,95 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Documento ficticio somente para o simulador local, nunca para emissao clinica real. */
+.clinical-demo-print {
+  display: none;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .clinical-demo-print,
+  .clinical-demo-print * {
+    visibility: visible !important;
+  }
+  .clinical-demo-print {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    color: #111;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .clinical-demo-print-head {
+    position: relative;
+    border-bottom: 2px solid #111;
+    padding-bottom: 18px;
+  }
+  .clinical-demo-print-head h1 {
+    margin: 9px 0;
+    font-size: 20pt;
+  }
+  .clinical-demo-print-head p {
+    margin: 2px 0;
+  }
+  .clinical-demo-print-watermark {
+    color: #9b1c1c;
+    font: bold 14pt Arial, sans-serif;
+    letter-spacing: 0.08em;
+  }
+  .clinical-demo-print-notice {
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  .clinical-demo-print-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 20px;
+    margin: 16px 0 22px;
+  }
+  .clinical-demo-print-meta div {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 8px;
+  }
+  .clinical-demo-print-meta dt {
+    color: #444;
+    font-size: 9pt;
+  }
+  .clinical-demo-print-meta dd {
+    margin: 3px 0 0;
+    font-weight: bold;
+  }
+  .clinical-demo-print-sections section {
+    break-inside: avoid;
+    margin: 16px 0;
+  }
+  .clinical-demo-print-sections h2 {
+    margin: 0 0 4px;
+    font-size: 12pt;
+  }
+  .clinical-demo-print-sections p {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .clinical-demo-print-footer {
+    margin-top: 22px;
+    padding-top: 12px;
+    border-top: 2px solid #9b1c1c;
+    color: #9b1c1c;
+    font: bold 10pt Arial, sans-serif;
+    break-inside: avoid;
+  }
+}
