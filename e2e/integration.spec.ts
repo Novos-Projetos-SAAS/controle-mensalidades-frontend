@@ -348,7 +348,7 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   await page.getByRole('button', { name: 'Ver detalhes de Cliente E2E A1' }).click();
   const cadastro = page.getByRole('dialog');
   await cadastro.getByRole('tab', { name: 'Mensalidades' }).click();
-  await expect(cadastro.getByText(/^Competência \\d{4}-\\d{2}$/)).toBeVisible();
+  await expect(cadastro.getByText(/^Competência \d{4}-\d{2}$/)).toBeVisible();
   await expect(cadastro.getByText('Paga', { exact: true })).toBeVisible();
   await cadastro.getByRole('button', { name: 'Ver pagamentos e comprovantes' }).click();
   await cadastro.getByRole('button', { name: 'Ver comprovante' }).click();
