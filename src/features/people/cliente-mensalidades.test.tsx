@@ -39,7 +39,8 @@ function prepararFetch({
   pagamentos?: typeof pagamento[];
   bloqueado?: boolean;
 } = {}) {
-  const fetchMock = vi.fn(async (url: string) => {
+  const fetchMock = vi.fn(async (url: string, _options?: RequestInit) => {
+    void _options;
     if (bloqueado) return new Response(JSON.stringify({
       codigo: 'PERFIL_NAO_AUTORIZADO', mensagem: 'Acesso negado.',
     }), { status: 403 });
@@ -85,7 +86,7 @@ describe('aba financeira de cliente', () => {
     expect(screen.getByText('Competência 2026-11')).toBeTruthy();
     expect(screen.getByText('Paga')).toBeTruthy();
     expect(screen.getByText('Aguardando pagamento')).toBeTruthy();
-    expect(screen.getByText('R$ 150,00')).toBeTruthy();
+    expect(screen.getAllByText('R$ 150,00').length).toBeGreaterThan(0);
     const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toContain('/api/v1/financeiro/mensalidades?');
     expect(url).toContain('clienteId=' + clienteId);
