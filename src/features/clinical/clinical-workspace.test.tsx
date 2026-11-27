@@ -358,4 +358,35 @@ describe('área clínica autenticada em homologação', () => {
     expect(await screen.findByText('Altere pelo menos um campo para registrar uma correção.')).toBeTruthy();
     expect(apiMock.corrigirEvolucao).not.toHaveBeenCalled();
   });
+
+  it('carrega páginas adicionais da linha do tempo sem perder registros anteriores', async () => {
+    const paginaInicial = Array.from({ length: 50 }, (_, indice) => ({
+      id: `00000000-0000-4000-8000-${String(indice + 1).padStart(12, '0')}`,
+      tipo: 'EVOLUCAO',
+      paciente_id: ids.paciente, profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício',
+      data: '2026-11-25T14:00:00.000Z',
+      titulo: `Sessão fictícia ${indice + 1}`,
+      versao: null, estado: null,
+    }));
+    const registroAntigo = [{
+      id: ids.anamnese, tipo: 'LAUDO', paciente_id: ids.paciente,
+      profissional_id: ids.profissional, profissional_nome: 'Profissional fictício',
+      data: '2026-11-20T14:00:00.000Z', titulo: 'Laudo histórico nº 51',
+      versao: 1, estado: 'FINALIZADO',
+    }];
+    apiMock.timeline.mockImplementation(async (_ctx, _id, _limite, deslocamento = 0) =>
+      deslocamento === 0 ? paginaInicial : registroAntigo);
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    expect(await screen.findByText('Sessão fictícia 1')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Carregar registros anteriores' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar registros anteriores' }));
+    expect(await screen.findByText('Laudo histórico nº 51')).toBeTruthy();
+    expect(screen.getByText('Sessão fictícia 1')).toBeTruthy();
+    expect(apiMock.timeline).toHaveBeenCalledWith(
+      { organizacaoId: ids.org, areaId: ids.area }, ids.paciente, 50, 50,
+    );
+    expect(screen.queryByRole('button', { name: 'Carregar registros anteriores' })).toBeNull();
+  });
 });
