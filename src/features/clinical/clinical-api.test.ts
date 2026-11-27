@@ -104,7 +104,7 @@ describe('contrato de API do prontuario protegido', () => {
   });
 
   it('baixa PDF autenticado por versão sem enviar identidade no corpo', async () => {
-    const fetchMock = vi.fn(async () => new Response(new Blob(['%PDF-1.4', 'laudo-ficticio'], {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => new Response(new Blob(['%PDF-1.4', 'laudo-ficticio'], {
       type: 'application/pdf',
     }), { status: 200, headers: { 'content-type': 'application/pdf' } }));
     vi.stubGlobal('fetch', fetchMock);
