@@ -13,6 +13,7 @@ const ids = vi.hoisted(() => ({
 }));
 const mocks = vi.hoisted(() => ({
   listar: vi.fn(), conceder: vi.fn(), revogar: vi.fn(), autorizarAcessoClinico: vi.fn(),
+  consultarUsuarioProfissional: vi.fn(),
   clientes: vi.fn(), profissionais: vi.fn(),
 }));
 vi.mock('@/features/auth/session', () => ({
@@ -35,6 +36,7 @@ vi.mock('./clinical-assignments-api', () => ({
   vinculosClinicosApi: {
     listar: mocks.listar, conceder: mocks.conceder, revogar: mocks.revogar,
     autorizarAcessoClinico: mocks.autorizarAcessoClinico,
+    consultarUsuarioProfissional: mocks.consultarUsuarioProfissional,
   },
 }));
 
@@ -46,6 +48,7 @@ beforeEach(() => {
   mocks.listar.mockResolvedValue([]);
   mocks.conceder.mockResolvedValue({ id: ids.vinculo });
   mocks.autorizarAcessoClinico.mockResolvedValue({ autorizado: true });
+  mocks.consultarUsuarioProfissional.mockResolvedValue({ vinculoAtivo: true, usuario: { id: 'usuario-profissional', nome: 'Teste' } });
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 });
 afterEach(() => { cleanup(); queryClient.clear(); });
@@ -59,6 +62,7 @@ describe('administração de vínculos de prontuário em banco', () => {
       fireEvent.change(screen.getByLabelText('Fisioterapeuta *'), {
         target: { value: ids.profissional },
       });
+      await screen.findByText('Usuário profissional ativo confirmado.');
       fireEvent.click(screen.getByRole('button', { name: 'Autorizar acesso clínico' }));
       await waitFor(() => expect(mocks.autorizarAcessoClinico).toHaveBeenCalledOnce());
       expect(confirmar).toHaveBeenCalledOnce();
@@ -79,11 +83,24 @@ describe('administração de vínculos de prontuário em banco', () => {
       fireEvent.change(screen.getByLabelText('Fisioterapeuta *'), {
         target: { value: ids.profissional },
       });
+      await screen.findByText('Usuário profissional ativo confirmado.');
       fireEvent.click(screen.getByRole('button', { name: 'Autorizar acesso clínico' }));
       expect(mocks.autorizarAcessoClinico).not.toHaveBeenCalled();
     } finally {
       confirmar.mockRestore();
     }
+  });
+
+  it('não libera acesso clínico quando profissional não possui usuário ativo', async () => {
+    mocks.consultarUsuarioProfissional.mockResolvedValue({ vinculoAtivo: false, usuario: null });
+    render(<QueryClientProvider client={queryClient}><ClinicalAssignmentsWorkspace /></QueryClientProvider>);
+    await screen.findByRole('option', { name: 'Fisioterapeuta Teste' });
+    fireEvent.change(screen.getByLabelText('Fisioterapeuta *'), {
+      target: { value: ids.profissional },
+    });
+    expect(await screen.findByText('Este profissional não possui um usuário ativo vinculado à organização.', { exact: false })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Autorizar acesso clínico' }).hasAttribute('disabled')).toBe(true);
+    expect(mocks.autorizarAcessoClinico).not.toHaveBeenCalled();
   });
 
   it('consulta cadastros e concede vínculo usando organização/área autenticadas', async () => {
