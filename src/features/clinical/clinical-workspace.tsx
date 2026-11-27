@@ -17,6 +17,7 @@ import {
 import type { AnamneseDraft, EvolucaoDraft, LaudoDraft } from './clinical-contracts';
 import { camposClinicosParaLeitura, formatarDataHoraClinica, type TipoLeituraClinica } from './clinical-display';
 import { LaudoPdfActions } from './laudo-pdf-actions';
+import { RevisaoEvolucao } from './revisao-evolucao';
 
 type Formulario = 'ANAMNESE' | 'EVOLUCAO' | 'LAUDO';
 type DadosForm = AnamneseDraft | EvolucaoDraft | LaudoDraft;
@@ -460,6 +461,17 @@ function ClinicalWorkspaceContext({
                             </div>
                           </div>
                           {exibirValores(detalhe.data as unknown as Record<string, unknown>, 'EVOLUCAO')}
+                          <RevisaoEvolucao
+                            key={detalhe.data.id}
+                            contexto={contexto}
+                            usuarioId={usuarioId}
+                            sessao={detalhe.data}
+                            salvando={salvando}
+                            onSalvar={(alteracoes) => concluir(
+                              () => clinicalApi.corrigirEvolucao(contexto, entrada?.id ?? '', alteracoes),
+                              'Correção registrada no histórico clínico.',
+                            )}
+                          />
                         </div>
                       ) : null}
                   </section>
