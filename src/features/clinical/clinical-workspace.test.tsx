@@ -137,12 +137,13 @@ describe('área clínica autenticada em homologação', () => {
     );
   });
 
-  it('exige hora e fuso explícitos e usa a identidade da sessão ao criar evolução', async () => {
+  it('permite evolução em data posterior à avaliação com um único campo de data/hora', async () => {
     montar();
     fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
     fireEvent.click(screen.getByRole('button', { name: 'Nova evolução' }));
+    expect(screen.queryByLabelText('Data da sessão *')).toBeNull();
+
     const campos = [
-      ['Data da sessão *', '2026-11-22'],
       ['Objetivo da sessão *', 'Mobilidade fictícia'],
       ['O que foi trabalhado na sessão *', 'Treino de marcha fictício'],
       ['Resposta e tolerância do paciente *', 'Boa tolerância fictícia'],
@@ -152,9 +153,9 @@ describe('área clínica autenticada em homologação', () => {
       fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
     }
     fireEvent.click(screen.getByRole('button', { name: 'Salvar evolução na homologação' }));
-    expect(await screen.findByText('Informe horário, fuso e aguarde a identificação profissional autenticada.')).toBeTruthy();
     expect(apiMock.criarEvolucao).not.toHaveBeenCalled();
 
+    // Avaliação simulada em 21/11; evolução realizada em 22/11.
     fireEvent.change(screen.getByLabelText('Data e hora do atendimento *'), {
       target: { value: '2026-11-22T14:30' },
     });
@@ -166,10 +167,38 @@ describe('área clínica autenticada em homologação', () => {
     expect(apiMock.criarEvolucao).toHaveBeenCalledWith(
       { organizacaoId: ids.org, areaId: ids.area },
       ids.paciente, ids.profissional,
-      expect.objectContaining({ procedimentos_realizados: 'Treino de marcha fictício' }),
+      expect.objectContaining({
+        data_sessao: '2026-11-22',
+        procedimentos_realizados: 'Treino de marcha fictício',
+      }),
       '2026-11-22T14:30:00-03:00',
     );
   });
+
+  it('impede registrar atendimento ainda futuro com mensagem compreensível', async () => {
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nova evolução' }));
+    fireEvent.change(screen.getByLabelText('Data e hora do atendimento *'), {
+      target: { value: '2099-12-30T14:30' },
+    });
+    fireEvent.change(screen.getByLabelText('Fuso horário *'), {
+      target: { value: '-03:00' },
+    });
+    const campos = [
+      ['Objetivo da sessão *', 'Mobilidade fictícia'],
+      ['O que foi trabalhado na sessão *', 'Treino fictício'],
+      ['Resposta e tolerância do paciente *', 'Boa tolerância fictícia'],
+      ['Evolução clínica observada *', 'Evolução fictícia'],
+    ] as const;
+    for (const [rotulo, valor] of campos) {
+      fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar evolução na homologação' }));
+    expect(await screen.findByText('A evolução só pode ser registrada após o atendimento.', { exact: false })).toBeTruthy();
+    expect(apiMock.criarEvolucao).not.toHaveBeenCalled();
+  });
+
   it('consulta o histórico persistido pelo backend após desmontar e abrir uma sessão nova', async () => {
     let gravado = false;
     apiMock.timeline.mockImplementation(async () => gravado ? [{
