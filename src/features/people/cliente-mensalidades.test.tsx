@@ -85,7 +85,7 @@ describe('aba financeira de cliente', () => {
     expect(await screen.findByText('Competência 2026-10')).toBeTruthy();
     expect(screen.getByText('Competência 2026-11')).toBeTruthy();
     expect(screen.getByText('Paga')).toBeTruthy();
-    expect(screen.getByText('Aguardando pagamento')).toBeTruthy();
+    expect(screen.getAllByText('Aguardando pagamento').length).toBeGreaterThan(0);
     expect(screen.getAllByText('R$ 150,00').length).toBeGreaterThan(0);
     const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toContain('/api/v1/financeiro/mensalidades?');
