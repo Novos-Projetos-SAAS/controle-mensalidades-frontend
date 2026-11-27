@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ClipboardList, FileText, LockKeyhole, RefreshCw, UserRound } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
@@ -114,9 +114,15 @@ function ClinicalWorkspaceContext({
     retry: false,
   });
 
-  const historico = useQuery({
+  const historico = useInfiniteQuery({
     queryKey: ['clinico', 'timeline', usuarioId, orgId, areaId, pacienteId],
-    queryFn: () => clinicalApi.timeline(contexto, pacienteId!),
+    queryFn: ({ pageParam }) => clinicalApi.timeline(contexto, pacienteId!, 50, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (ultimaPagina, paginas) => {
+      const proximoDeslocamento = paginas.reduce((total, paginaAtual) => total + paginaAtual.length, 0);
+      return ultimaPagina.length === 50 && proximoDeslocamento <= 10000
+        ? proximoDeslocamento : undefined;
+    },
     enabled: disponivel && !!pacienteId,
     retry: false,
   });
@@ -139,6 +145,10 @@ function ClinicalWorkspaceContext({
   const versaoAtual = documento?.versoes.at(-1);
   const versao = documento?.versoes.find((v) => v.versao === versaoExibida) ?? versaoAtual;
   const paciente = pacientes.data?.items.find((item) => item.id === pacienteId);
+  // Evita itens duplicados se uma nova sessão for inserida durante a paginação.
+  const entradasHistorico = Array.from(
+    new Map((historico.data?.pages.flat() ?? []).map((item) => [item.id, item])).values(),
+  );
 
   function escolherPaciente(id: string) {
     setPacienteId(id);
@@ -376,11 +386,11 @@ function ClinicalWorkspaceContext({
                     <p role="status" className="mt-4 text-sm">Carregando histórico clínico…</p>
                   ) : historico.isError ? (
                     <p role="alert" className="mt-4 text-sm text-red-800">{mensagemErro(historico.error)}</p>
-                  ) : historico.data?.length === 0 ? (
+                  ) : entradasHistorico.length === 0 ? (
                     <p className="mt-4 text-sm text-slate-600">Nenhum registro deste profissional para o paciente.</p>
                   ) : (
                     <ol className="mt-4 space-y-3">
-                      {historico.data?.map((item) => (
+                      {entradasHistorico.map((item) => (
                         <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
                           <div>
                             <p className="text-xs font-semibold text-teal-800">{item.tipo}</p>
@@ -396,6 +406,14 @@ function ClinicalWorkspaceContext({
                         </li>
                       ))}
                     </ol>
+                  )}
+                  {historico.hasNextPage && (
+                    <div className="mt-4">
+                      <Button variant="outline" disabled={historico.isFetchingNextPage}
+                        onClick={() => void historico.fetchNextPage()}>
+                        {historico.isFetchingNextPage ? 'Buscando atendimentos anteriores…' : 'Carregar registros anteriores'}
+                      </Button>
+                    </div>
                   )}
                 </section>
 
