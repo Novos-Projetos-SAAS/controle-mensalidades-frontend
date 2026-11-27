@@ -12,11 +12,13 @@ export function ChargePanel({
   context,
   mensalidadeId,
   payable,
+  quitada = false,
   onChanged,
 }: {
   context: FinanceContext;
   mensalidadeId: string;
   payable: boolean;
+  quitada?: boolean;
   onChanged: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -38,8 +40,11 @@ export function ChargePanel({
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const settled =
+    quitada || query.data?.status === 'QUITADO' || query.data?.status === 'PAGO_VERIFICADO';
+  const terminal = settled || !payable;
   async function generate() {
-    if (locked.current || !providerActive || uncertain) return;
+    if (terminal || locked.current || !providerActive || uncertain) return;
     locked.current = true;
     setBusy(true);
     setError(null);
@@ -56,7 +61,7 @@ export function ChargePanel({
     }
   }
   async function check() {
-    if (locked.current) return;
+    if (terminal || locked.current) return;
     locked.current = true;
     setBusy(true);
     try {
@@ -77,7 +82,11 @@ export function ChargePanel({
   }
   const charge = query.data;
   const path =
-    charge?.url_plataforma && platformPaymentUrl(charge.url_plataforma, 'https://platform.invalid')
+    !settled &&
+    payable &&
+    charge?.status === 'AGUARDANDO_PAGAMENTO' &&
+    charge.url_plataforma &&
+    platformPaymentUrl(charge.url_plataforma, 'https://platform.invalid')
       ? charge.url_plataforma
       : null;
   return (
@@ -86,7 +95,28 @@ export function ChargePanel({
       aria-label="Pagamento online"
     >
       <h3 className="font-semibold">Pagamento online</h3>
-      {query.isPending ? (
+      {settled ? (
+        <div aria-live="polite" className="space-y-2">
+          <p className="text-sm font-medium">
+            {
+              paymentStatus[charge?.status === 'PAGO_VERIFICADO' ? 'PAGO_VERIFICADO' : 'QUITADO']
+                .title
+            }
+          </p>
+          <p className="text-sm text-slate-600">
+            {
+              paymentStatus[charge?.status === 'PAGO_VERIFICADO' ? 'PAGO_VERIFICADO' : 'QUITADO']
+                .description
+            }
+          </p>
+          {charge?.requer_conferencia && (
+            <p role="alert" className="text-sm text-amber-800">
+              Um recebimento externo precisa de conferência. Consulte o histórico antes de qualquer
+              ajuste.
+            </p>
+          )}
+        </div>
+      ) : query.isPending ? (
         <LoadingState rows={1} />
       ) : query.isError ? (
         <ErrorState
@@ -124,6 +154,7 @@ export function ChargePanel({
                     disabled={busy}
                     onClick={async () => {
                       try {
+                        if (terminal) return;
                         const url = platformPaymentUrl(path, window.location.origin);
                         if (!url) throw new Error();
                         await navigator.clipboard.writeText(url);
@@ -178,9 +209,11 @@ export function ChargePanel({
               </Button>
             </div>
           )}
-          <Button variant="outline" onClick={check} disabled={busy}>
-            Conferir pagamento
-          </Button>
+          {payable && (
+            <Button variant="outline" onClick={check} disabled={busy}>
+              Conferir pagamento
+            </Button>
+          )}
         </>
       )}
       {error && (

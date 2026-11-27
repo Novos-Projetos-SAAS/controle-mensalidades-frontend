@@ -79,6 +79,7 @@ function PaymentContent({ token, evidence, returned = false }: PaymentPageProps)
       document.removeEventListener('visibilitychange', visibility);
     };
   }, [token, evidenceKey, refresh]);
+  const settled = charge?.status === 'QUITADO' || charge?.status === 'PAGO_VERIFICADO';
   const feedback = charge ? paymentStatus[charge.status] : null;
   const checkout =
     !loading && !error && charge?.status === 'AGUARDANDO_PAGAMENTO'
@@ -134,22 +135,24 @@ function PaymentContent({ token, evidence, returned = false }: PaymentPageProps)
                 )}
               </>
             )}
-            {returned && !evidence && (
+            {returned && !evidence && !settled && (
               <p className="text-sm text-slate-600">
                 Confira a situação do pagamento antes de tentar novamente.
               </p>
             )}
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={loading}
-              onClick={() => {
-                setLoading(true);
-                setRefresh((value) => value + 1);
-              }}
-            >
-              Atualizar situação
-            </Button>
+            {!settled && (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={() => {
+                  setLoading(true);
+                  setRefresh((value) => value + 1);
+                }}
+              >
+                Atualizar situação
+              </Button>
+            )}
           </>
         )}
       </section>

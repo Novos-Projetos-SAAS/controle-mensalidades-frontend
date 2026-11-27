@@ -151,7 +151,7 @@ export const financeApi = {
     key: string,
     body: { valor: string; forma_pagamento: string; pago_em: string },
   ) =>
-    api<{ pagamento: Pagamento; repetido: boolean }>(
+    api<{ pagamento: Pagamento; repetido: boolean; mensalidade?: Mensalidade }>(
       `/financeiro/mensalidades/${id}/recebimentos`,
       {
         method: 'POST',

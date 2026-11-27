@@ -75,6 +75,7 @@ export type AdminCharge = PublicCharge & {
   id: string;
   url_plataforma: string | null;
   ultimo_erro: string | null;
+  requer_conferencia?: boolean;
 };
 
 async function publicRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
