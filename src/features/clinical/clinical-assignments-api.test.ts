@@ -46,6 +46,20 @@ describe('contrato administrativo de vinculo clinico', () => {
     });
   });
 
+  it('habilita acesso clinico somente por acao administrativa explicita no profissional escolhido', async () => {
+    const fetchMock = stub({ profissionalId: profissional, areaNegocioId: contexto.areaId, autorizado: true });
+    const resultado = await vinculosClinicosApi.autorizarAcessoClinico(contexto, profissional);
+    expect(resultado.autorizado).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(`/api/v1/profissionais/${profissional}/acesso-clinico`);
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(String(init?.body))).toEqual({ autorizado: true });
+    expect(init?.headers).toMatchObject({
+      'x-organizacao-id': contexto.organizacaoId,
+      'x-area-negocio-id': contexto.areaId,
+    });
+  });
+
   it('revogacao exige motivo nao vazio e elimina tentativa de ID malformado', async () => {
     const fetchMock = stub({ id: vinculo, revogado: true });
     expect(() => vinculosClinicosApi.revogar(contexto, vinculo, 'curto')).toThrow();
