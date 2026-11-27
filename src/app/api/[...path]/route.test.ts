@@ -64,6 +64,42 @@ describe('API intermediária em hospedagem', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('encaminha PDF de laudo sem cache e preserva headers seguros de download', async () => {
+    vi.stubEnv('BACKEND_URL', 'http://localhost:3334');
+    const fetchMock = vi.fn(async () =>
+      new Response(new Blob(['%PDF-1.4'], { type: 'application/pdf' }), {
+        status: 200, headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="laudo-fisioterapeutico.pdf"',
+          'x-content-type-options': 'nosniff',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const documento = '11111111-1111-4111-8111-111111111111';
+    const request = new NextRequest('http://localhost:3000/api/v1/documentos-clinicos/' +
+      documento + '/pdf?versao=2', {
+        headers: {
+          host: 'localhost:3000',
+          cookie: 'token=SESSAO_TESTE',
+          'x-organizacao-id': '22222222-2222-4222-8222-222222222222',
+          'x-area-negocio-id': '33333333-3333-4333-8333-333333333333',
+        },
+      });
+    const resposta = await GET(request, {
+      params: Promise.resolve({ path: ['v1', 'documentos-clinicos', documento, 'pdf'] }),
+    });
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get('content-type')).toContain('application/pdf');
+    expect(resposta.headers.get('content-disposition')).toContain('attachment');
+    expect(resposta.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(resposta.headers.get('cache-control')).toContain('no-store');
+    expect((await resposta.text()).startsWith('%PDF-1.4')).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain('/api/v1/documentos-clinicos/' + documento + '/pdf?versao=2');
+    expect(init?.cache).toBe('no-store');
+  });
+
   it('encaminha POST clínico autorizado de mesma origem sem cache', async () => {
     vi.stubEnv('BACKEND_URL', 'http://localhost:3333');
     const fetchMock = vi.fn(async () =>
