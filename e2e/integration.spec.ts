@@ -285,11 +285,8 @@ test('cria plano, assinatura e mensalidade reais no banco de testes', async ({ p
   expect(firstResult.data.repetido).toBe(false);
   expect(firstResult.data.pagamento.valor).toBe('49.90');
   await otherTab.getByRole('button', { name: 'Confirmar recebimento' }).click();
-  await expect(
-    otherTab.getByRole('alert').filter({
-      hasText: 'O valor em aberto ou a situação do pagamento mudou.',
-    }),
-  ).toBeVisible();
+  // A segunda aba reconhece a quitação já confirmada e fecha, sem registrar outro pagamento.
+  await expect(otherTab.getByRole('dialog')).toHaveCount(0);
   expect(otherTabPosts).toBe(0);
   await otherTab.close();
 
