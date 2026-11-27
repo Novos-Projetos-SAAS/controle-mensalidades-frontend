@@ -106,6 +106,47 @@ describe('área clínica autenticada em homologação', () => {
     );
   });
 
+  it('apresenta evolução clínica legível, sem ids, colunas do banco ou horários UTC crus', async () => {
+    apiMock.timeline.mockResolvedValue([{
+      id: ids.anamnese, tipo: 'EVOLUCAO', paciente_id: ids.paciente,
+      data: '2026-11-26T00:59:00.000Z', profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício', titulo: 'Evolução da sessão',
+      versao: null, estado: null,
+    }]);
+    apiMock.consultarEvolucao.mockResolvedValue({
+      id: ids.anamnese,
+      cliente_id: ids.paciente,
+      cliente_nome: 'Paciente Teste A',
+      profissional_id: ids.profissional,
+      profissional_nome: 'Profissional fictício',
+      data_sessao: '2026-11-26T00:59:00.000Z',
+      agendamento_id: null,
+      corrigido_em: null,
+      corrigido_por_usuario_id: null,
+      objetivo_sessao: 'Mobilidade',
+      avaliacao_previa: 'Rigidez',
+      procedimentos_realizados: 'Alongamentos',
+      exercicios_parametros: '3 séries',
+      resposta_paciente: 'Boa resposta',
+      evolucao: 'Mobilidade melhorou',
+      prognostico: null,
+      plano_terapeutico: null,
+      orientacoes: null,
+    });
+    montar();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paciente Teste A' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Consultar registro' }));
+    expect(await screen.findByText('Alongamentos')).toBeTruthy();
+    expect(screen.getByText('O que foi trabalhado na sessão')).toBeTruthy();
+    expect(screen.getByText('Data e hora da sessão (Brasília)')).toBeTruthy();
+    expect(screen.getAllByText(/25\\/11\\/2026/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('agendamento_id')).toBeNull();
+    expect(screen.queryByText('corrigido_por_usuario_id')).toBeNull();
+    expect(screen.queryByText(ids.anamnese)).toBeNull();
+    expect(screen.queryByText('2026-11-26T00:59:00.000Z')).toBeNull();
+    expect(screen.queryByText('Não informado')).toBeNull();
+  });
+
   it('não usa simulador nem cadastro geral ao receber gate 403 da API', async () => {
     apiMock.pacientesVinculados.mockRejectedValue(new ApiError('Acesso clínico bloqueado.', 403, 'ACESSO_CLINICO_NAO_CONFIGURADO'));
     montar();
