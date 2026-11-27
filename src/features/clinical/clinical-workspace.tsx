@@ -22,6 +22,21 @@ import { RevisaoEvolucao } from './revisao-evolucao';
 type Formulario = 'ANAMNESE' | 'EVOLUCAO' | 'LAUDO';
 type DadosForm = AnamneseDraft | EvolucaoDraft | LaudoDraft;
 
+const rotulosTipos = {
+  ANAMNESE: 'Avaliação inicial',
+  EVOLUCAO: 'Evolução da sessão',
+  LAUDO: 'Laudo fisioterapêutico',
+} as const;
+const rotulosEstados = {
+  RASCUNHO: 'Rascunho',
+  FINALIZADO: 'Finalizado, sem assinatura digital',
+} as const;
+const rotulosNaturezas = {
+  INICIAL: 'Registro inicial',
+  CORRECAO: 'Correção',
+  ADENDO: 'Adendo',
+} as const;
+
 function mensagemErro(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) return 'Acesso clínico não autorizado. Verifique seu vínculo e as permissões com o administrador.';
@@ -393,7 +408,7 @@ function ClinicalWorkspaceContext({
                       {entradasHistorico.map((item) => (
                         <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
                           <div>
-                            <p className="text-xs font-semibold text-teal-800">{item.tipo}</p>
+                            <p className="text-xs font-semibold text-teal-800">{rotulosTipos[item.tipo]}</p>
                             <p className="text-sm font-semibold">{item.titulo}</p>
                             <p className="text-xs text-slate-600">
                               {formatarDataHoraClinica(item.data)} · {item.profissional_nome}
@@ -435,7 +450,7 @@ function ClinicalWorkspaceContext({
                               </Button>
                             ))}
                           </div>
-                          <p className="text-xs text-slate-600">{versao.estado} · {versao.natureza} · {formatarDataHoraClinica(versao.registrado_em)}</p>
+                          <p className="text-xs text-slate-600">{rotulosEstados[versao.estado]} · {rotulosNaturezas[versao.natureza]} · {formatarDataHoraClinica(versao.registrado_em)}</p>
                           {exibirValores(versao.conteudo, entrada.tipo as 'ANAMNESE' | 'LAUDO')}
                           {entrada.tipo === 'LAUDO' && (
                             <LaudoPdfActions
