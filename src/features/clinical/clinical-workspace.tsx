@@ -269,9 +269,9 @@ function ClinicalWorkspaceContext({
           <div>
             <strong>Integração clínica em homologação — somente ambiente local</strong>
             <p className="mt-1">
-              Esta tela consulta a API autenticada, não o simulador. As rotas do prontuário estão
-              bloqueadas no backend até aprovação. Não utilize dados reais nem altere permissões para
-              contornar o bloqueio.
+              Esta tela consulta a API clínica autenticada no PostgreSQL de desenvolvimento,
+              não o simulador. O acesso só funciona com as permissões clínicas e as confirmações
+              explícitas de homologação. Não utilize dados de pacientes reais nesta etapa.
             </p>
           </div>
         </div>
