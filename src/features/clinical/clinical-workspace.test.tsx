@@ -193,6 +193,10 @@ describe('área clínica autenticada em homologação', () => {
       ['O que foi trabalhado na sessão *', 'Treino de marcha fictício'],
       ['Resposta e tolerância do paciente *', 'Boa tolerância fictícia'],
       ['Evolução clínica observada *', 'Evolução fictícia'],
+      ['Diagnóstico fisioterapêutico', 'Diagnóstico funcional fictício'],
+      ['Prognóstico fisioterapêutico', 'Boa evolução sintética'],
+      ['Plano terapêutico', 'Plano de marcha sintético'],
+      ['Observações clínicas', 'Sem intercorrências simuladas'],
     ] as const;
     for (const [rotulo, valor] of campos) {
       fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
@@ -215,6 +219,10 @@ describe('área clínica autenticada em homologação', () => {
       expect.objectContaining({
         data_sessao: '2026-11-22',
         procedimentos_realizados: 'Treino de marcha fictício',
+        diagnostico_fisioterapeutico: 'Diagnóstico funcional fictício',
+        prognostico: 'Boa evolução sintética',
+        plano_terapeutico: 'Plano de marcha sintético',
+        observacoes: 'Sem intercorrências simuladas',
       }),
       '2026-11-22T14:30:00-03:00',
     );
