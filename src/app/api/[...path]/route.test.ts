@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { GET, POST } from './route';
+import { GET, PATCH, POST } from './route';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -36,6 +36,30 @@ describe('API intermediária em hospedagem', () => {
       body: '{}',
     });
     const r = await POST(pedido, { params: Promise.resolve({ path: ['v1', 'documentos-clinicos'] }) });
+    expect(r.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia autorização administrativa clínica de origem cruzada', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('BACKEND_URL', 'http://localhost:3333');
+    const profissional = '11111111-1111-4111-8111-111111111111';
+    const path = ['v1', 'profissionais', profissional, 'acesso-clinico'];
+    const pedido = new NextRequest(
+      `http://localhost:3000/api/v1/profissionais/${profissional}/acesso-clinico`,
+      {
+        method: 'PATCH',
+        headers: {
+          host: 'localhost:3000',
+          origin: 'https://site-externo.example',
+          cookie: 'token=NAO_ENVIAR',
+          'sec-fetch-site': 'cross-site',
+        },
+        body: JSON.stringify({ autorizado: true }),
+      },
+    );
+    const r = await PATCH(pedido, { params: Promise.resolve({ path }) });
     expect(r.status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
