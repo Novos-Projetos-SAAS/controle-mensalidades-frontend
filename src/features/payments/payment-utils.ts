@@ -49,6 +49,20 @@ export function platformPaymentUrl(path: string | null, origin: string): string 
   return new URL(path, origin).href;
 }
 
+/**
+ * A URL privada só pode ser distribuída enquanto a cobrança aguarda pagamento.
+ * Nunca disponibilize links de cobranças quitadas, expiradas ou em análise.
+ */
+export function availablePaymentPath(
+  charge: { status: string; url_plataforma: string | null } | null | undefined,
+  payable: boolean,
+): string | null {
+  if (!payable || charge?.status !== 'AGUARDANDO_PAGAMENTO') return null;
+  return platformPaymentUrl(charge.url_plataforma, 'https://platform.invalid')
+    ? charge.url_plataforma
+    : null;
+}
+
 export function shouldPollPayment(status: string, attempts: number, visible: boolean): boolean {
   return (
     visible &&

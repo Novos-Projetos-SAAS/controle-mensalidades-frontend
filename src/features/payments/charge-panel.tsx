@@ -1,11 +1,13 @@
 'use client';
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { ExternalLink, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorState, LoadingState } from '@/components/query-state';
 import { financeKey, useFinanceQuery, type FinanceContext } from '@/features/finance/finance-api';
 import { paymentApi, type PaymentProvider } from './payments-api';
-import { paymentStatus, platformPaymentUrl } from './payment-utils';
+import { availablePaymentPath, paymentStatus } from './payment-utils';
+import { CopyPaymentLinkButton } from './copy-payment-link-button';
 import { financeErrorMessage } from '@/features/finance/finance-utils';
 
 export function ChargePanel({
@@ -39,7 +41,6 @@ export function ChargePanel({
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const settled =
     quitada || query.data?.status === 'QUITADO' || query.data?.status === 'PAGO_VERIFICADO';
   const terminal = settled || !payable;
@@ -81,20 +82,21 @@ export function ChargePanel({
     }
   }
   const charge = query.data;
-  const path =
-    !settled &&
-    payable &&
-    charge?.status === 'AGUARDANDO_PAGAMENTO' &&
-    charge.url_plataforma &&
-    platformPaymentUrl(charge.url_plataforma, 'https://platform.invalid')
-      ? charge.url_plataforma
-      : null;
+  const path = availablePaymentPath(charge, !settled && payable);
   return (
     <section
-      className="mt-6 space-y-3 border-t border-slate-200 pt-4"
+      className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
       aria-label="Pagamento online"
     >
-      <h3 className="font-semibold">Pagamento online</h3>
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800">
+          <Link2 size={19} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-900">Pagamento online</h3>
+          <p className="text-xs text-slate-500">Situação e acesso seguro à cobrança</p>
+        </div>
+      </div>
       {settled ? (
         <div aria-live="polite" className="space-y-2">
           <p className="text-sm font-medium">
@@ -130,55 +132,52 @@ export function ChargePanel({
         <>
           {charge ? (
             <>
-              <p className="text-sm text-slate-600">
-                {charge.provedor === 'ABACATEPAY' ? 'AbacatePay' : 'InfinitePay'}
-              </p>
-              <p className="text-sm font-medium">
-                {paymentStatus[charge.status]?.title || 'Situação indisponível'}
-              </p>
-              <p className="text-sm text-slate-600">{paymentStatus[charge.status]?.description}</p>
+              <div className="min-w-0 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    {charge.provedor === 'ABACATEPAY' ? 'AbacatePay' : 'InfinitePay'}
+                  </p>
+                  {path && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">
+                      <Link2 size={14} aria-hidden="true" />
+                      Link gerado
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {paymentStatus[charge.status]?.title || 'Situação indisponível'}
+                </p>
+                <p className="text-sm leading-6 text-slate-600">
+                  {paymentStatus[charge.status]?.description}
+                </p>
+              </div>
               {path && (
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild variant="outline">
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                  <Button asChild variant="outline" className="w-full">
                     <a
                       href={path}
                       target="_blank"
                       rel="noopener noreferrer"
                       referrerPolicy="no-referrer"
                     >
+                      <ExternalLink size={16} aria-hidden="true" />
                       Abrir página de pagamento
                     </a>
                   </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={async () => {
-                      try {
-                        if (terminal) return;
-                        const url = platformPaymentUrl(path, window.location.origin);
-                        if (!url) throw new Error();
-                        await navigator.clipboard.writeText(url);
-                        setCopied(true);
-                      } catch {
-                        setError('Não foi possível copiar. Abra a página e copie o endereço.');
-                      }
-                    }}
-                  >
-                    Copiar link para o cliente
-                  </Button>
+                  <CopyPaymentLinkButton
+                    path={path}
+                    label="Copiar link para o cliente"
+                    className="w-full"
+                  />
                 </div>
               )}
-              {copied && (
-                <p role="status" className="text-sm text-teal-800">
-                  Link copiado.
-                </p>
-              )}
+
             </>
           ) : (
             <p className="text-sm text-slate-600">Nenhum link de pagamento gerado.</p>
           )}
           {payable && (!charge || charge.status === 'EXPIRADO') && (
-            <div className="space-y-3">
+            <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/40 p-3 sm:p-4">
               {integrations.isPending ? (
                 <LoadingState rows={1} />
               ) : integrations.isError ? (
@@ -204,20 +203,20 @@ export function ChargePanel({
                   </select>
                 </label>
               )}
-              <Button onClick={generate} disabled={busy || uncertain || !providerActive}>
+              <Button className="w-full sm:w-auto" onClick={generate} disabled={busy || uncertain || !providerActive}>
                 {busy ? 'Gerando...' : 'Gerar link de pagamento'}
               </Button>
             </div>
           )}
           {payable && (
-            <Button variant="outline" onClick={check} disabled={busy}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={check} disabled={busy}>
               Conferir pagamento
             </Button>
           )}
         </>
       )}
       {error && (
-        <div role="alert" className="text-sm text-red-800">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           <p>{error}</p>
           {uncertain && (
             <p>
