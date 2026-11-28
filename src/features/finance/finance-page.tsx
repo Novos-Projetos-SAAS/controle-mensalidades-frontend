@@ -565,7 +565,7 @@ function FinanceContent({ context }: { context: FinanceContext }) {
                   className="surface grid min-w-0 gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <div className="min-w-0">
-                    {/* <InvoiceLinkBadge context={context} invoice={item} /> */}
+                    <InvoiceLinkBadge context={context} invoice={item} />
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold">{item.cliente_nome}</h2>
                       {pill(item.status)}
