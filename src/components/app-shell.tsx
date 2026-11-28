@@ -30,7 +30,11 @@ const links = [
   { href: '/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/profissionais', label: 'Profissionais', icon: BriefcaseBusiness },
   ...(process.env.NODE_ENV === 'development'
-    ? [{ href: '/prontuario-demo', label: 'Prontuário (treinamento)', icon: ClipboardPlus }]
+    ? [
+        { href: '/prontuario', label: 'Prontuário (banco)', icon: ClipboardPlus },
+        { href: '/prontuario-vinculos', label: 'Vínculos clínicos', icon: ShieldCheck },
+        { href: '/prontuario-demo', label: 'Prontuário (treinamento)', icon: ClipboardPlus },
+      ]
     : []),
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
@@ -87,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </p>
       <nav aria-label="Navegação principal" className="space-y-1">
         {links
-          .filter((link) => !['/financeiro', '/configuracoes/whatsapp', '/configuracoes/usuarios'].includes(link.href) || organization?.perfil === 'ADMINISTRADOR')
+          .filter((link) => !['/financeiro', '/configuracoes/whatsapp', '/configuracoes/usuarios', '/prontuario-vinculos'].includes(link.href) || organization?.perfil === 'ADMINISTRADOR')
           .map((link) => (
             <Link
               key={link.href}

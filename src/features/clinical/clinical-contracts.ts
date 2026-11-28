@@ -27,6 +27,10 @@ export const evolucaoSchema = z.object({
   evolucao_clinica: texto('a evolução clínica'),
   orientacoes: opcional,
   plano_proxima_sessao: opcional,
+  diagnostico_fisioterapeutico: z.string().trim().max(10000).optional(),
+  prognostico: z.string().trim().max(10000).optional(),
+  plano_terapeutico: z.string().trim().max(10000).optional(),
+  observacoes: z.string().trim().max(10000).optional(),
 });
 
 export const laudoSchema = z.object({
@@ -65,6 +69,10 @@ export function sessaoClinicaLegada(dados: EvolucaoDraft) {
       resposta_paciente: dados.resposta_paciente,
       orientacoes: dados.orientacoes,
       plano_proxima_sessao: dados.plano_proxima_sessao,
+      diagnostico_fisioterapeutico: dados.diagnostico_fisioterapeutico,
+      prognostico: dados.prognostico,
+      plano_terapeutico: dados.plano_terapeutico,
+      observacoes: dados.observacoes,
     },
   };
 }

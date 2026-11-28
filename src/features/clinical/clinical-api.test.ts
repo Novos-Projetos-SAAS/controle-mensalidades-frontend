@@ -30,6 +30,10 @@ const evolucao: EvolucaoDraft = {
   evolucao_clinica: 'Evolucao ficticia',
   orientacoes: '',
   plano_proxima_sessao: '',
+  diagnostico_fisioterapeutico: 'Diagnóstico fictício de mobilidade',
+  prognostico: 'Melhora funcional prevista em teste',
+  plano_terapeutico: 'Programa fictício de mobilidade',
+  observacoes: 'Sem intercorrências fictícias',
 };
 
 function simularSucesso(dados: unknown) {
@@ -45,6 +49,30 @@ function simularSucesso(dados: unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('contrato de API do prontuario protegido', () => {
+  it('obtém a identidade profissional no contexto autenticado, nunca de um ID informado', async () => {
+    const fetchMock = simularSucesso({ profissional_id: profissional });
+    await expect(clinicalApi.minhaIdentidade(ctx)).resolves.toEqual({ profissional_id: profissional });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/prontuario/identidade');
+    expect(init?.headers).toMatchObject({
+      'x-organizacao-id': org,
+      'x-area-negocio-id': area,
+    });
+    expect(init?.method).toBeUndefined();
+  });
+
+  it('consulta lista paginada de pacientes vinculados, sem usar cadastro geral', async () => {
+    const resposta = { items: [{ id: paciente, nome: 'Paciente fictício' }], pagina: 2, limite: 1, temMais: false };
+    const fetchMock = simularSucesso(resposta);
+    await expect(clinicalApi.pacientesVinculados(ctx, 2, 1)).resolves.toEqual(resposta);
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/prontuario/pacientes?pagina=2&limite=1');
+    expect(url).not.toContain('cpf');
+    expect(() => clinicalApi.pacientesVinculados(ctx, 0)).toThrow('Paginação');
+    expect(() => clinicalApi.pacientesVinculados(ctx, 1, 51)).toThrow('Paginação');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('consulta timeline com credenciais e contexto, sem texto clinico na URL', async () => {
     const fetchMock = simularSucesso([]);
     await expect(clinicalApi.timeline(ctx, paciente, 30)).resolves.toEqual([]);
@@ -57,6 +85,12 @@ describe('contrato de API do prontuario protegido', () => {
       'x-organizacao-id': org,
       'x-area-negocio-id': area,
     });
+    await expect(clinicalApi.timeline(ctx, paciente, 50, 50)).resolves.toEqual([]);
+    expect(fetchMock.mock.calls[1]![0]).toBe(
+      `/api/v1/prontuario/pacientes/${paciente}/historico?limite=50&deslocamento=50`,
+    );
+    expect(() => clinicalApi.timeline(ctx, paciente, 50, -1)).toThrow('Página do histórico');
+    expect(() => clinicalApi.timeline(ctx, paciente, 50, 10001)).toThrow('Página do histórico');
   });
 
   it('não permite tentativa de URL injection, contexto vazio nem limite fora do contrato', async () => {
@@ -76,6 +110,44 @@ describe('contrato de API do prontuario protegido', () => {
     expect(url).not.toContain(anamnese.queixa_principal);
     expect(JSON.parse(String(init?.body))).toMatchObject({
       tipo: 'ANAMNESE', cliente_id: paciente, conteudo: anamnese,
+    });
+  });
+
+  it('baixa PDF autenticado por versão sem enviar identidade no corpo', async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => new Response(new Blob(['%PDF-1.4', 'laudo-ficticio'], {
+      type: 'application/pdf',
+    }), { status: 200, headers: { 'content-type': 'application/pdf' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const arquivo = await clinicalApi.pdfLaudo(ctx, documento, 3);
+    expect(arquivo.size).toBeGreaterThan(0);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/v1/documentos-clinicos/' + documento + '/pdf?versao=3');
+    expect(init).toMatchObject({
+      credentials: 'same-origin', cache: 'no-store',
+      headers: {
+        Accept: 'application/pdf',
+        'x-organizacao-id': org,
+        'x-area-negocio-id': area,
+      },
+    });
+    expect(init?.method).toBeUndefined();
+    expect(init?.body).toBeUndefined();
+  });
+
+  it('nega PDF sem permissão e rejeita resposta que não seja PDF', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ codigo: 'ACESSO_CLINICO_NEGADO', mensagem: 'Sem vínculo' }),
+      { status: 403, headers: { 'content-type': 'application/json' } },
+    )));
+    await expect(clinicalApi.pdfLaudo(ctx, documento, 1)).rejects.toMatchObject({
+      status: 403, code: 'ACESSO_CLINICO_NEGADO',
+    });
+    expect(clinicalApi.pdfLaudo(ctx, documento, 0)).rejects.toThrow('Versão');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Erro de proxy', {
+      status: 200, headers: { 'content-type': 'text/html' },
+    })));
+    await expect(clinicalApi.pdfLaudo(ctx, documento, 1)).rejects.toMatchObject({
+      code: 'PDF_INVALIDO',
     });
   });
 
@@ -108,6 +180,10 @@ describe('contrato de API do prontuario protegido', () => {
       exercicios_parametros: '3 series de teste',
       resposta_paciente: 'Boa tolerancia ficticia',
       evolucao: 'Evolucao ficticia',
+      diagnostico_fisioterapeutico: 'Diagnóstico fictício de mobilidade',
+      prognostico: 'Melhora funcional prevista em teste',
+      plano_terapeutico: 'Programa fictício de mobilidade',
+      observacoes: 'Sem intercorrências fictícias',
     });
   });
 

@@ -1,8 +1,17 @@
-import { api } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import type { AnamneseDraft, LaudoDraft, EvolucaoDraft } from './clinical-contracts';
 
 // Contrato tipado para o futuro prontuario real. Nao aciona nada sozinho:
 // as rotas correspondentes continuam bloqueadas no backend ate a homologacao.
+export type PacienteClinicoVinculado = { id: string; nome: string };
+export type ListagemPacientesClinicos = {
+  items: PacienteClinicoVinculado[];
+  pagina: number;
+  limite: number;
+  temMais: boolean;
+};
+export type MinhaIdentidadeClinica = { profissional_id: string };
+
 export type ClinicalContext = {
   organizacaoId: string;
   areaId: string;
@@ -115,13 +124,34 @@ function context(c: ClinicalContext) {
 }
 
 export const clinicalApi = {
+  // O backend deriva identidade profissional da sessão autenticada;
+  // o frontend nunca pede que um usuário informe ou escolha seu próprio ID.
+  minhaIdentidade(c: ClinicalContext) {
+    return api<MinhaIdentidadeClinica>('/prontuario/identidade', {}, context(c));
+  },
+
+  pacientesVinculados(c: ClinicalContext, pagina = 1, limite = 20) {
+    if (!Number.isInteger(pagina) || pagina < 1 || pagina > 100 ||
+        !Number.isInteger(limite) || limite < 1 || limite > 50) {
+      throw new Error('Paginação clínica inválida.');
+    }
+    return api<ListagemPacientesClinicos>(
+      `/prontuario/pacientes?pagina=${pagina}&limite=${limite}`,
+      {},
+      context(c),
+    );
+  },
+
   // Apenas metadados; cada detalhe exige outra autorização e auditoria.
-  timeline(c: ClinicalContext, pacienteId: string, limite = 50) {
+  timeline(c: ClinicalContext, pacienteId: string, limite = 50, deslocamento = 0) {
     if (!Number.isInteger(limite) || limite < 1 || limite > 100) {
       throw new Error('Limite do histórico inválido.');
     }
+    if (!Number.isInteger(deslocamento) || deslocamento < 0 || deslocamento > 10000) {
+      throw new Error('Página do histórico inválida.');
+    }
     return api<ClinicalTimelineItem[]>(
-      `/prontuario/pacientes/${identificar(pacienteId)}/historico?limite=${limite}`,
+      `/prontuario/pacientes/${identificar(pacienteId)}/historico?limite=${limite}${deslocamento ? `&deslocamento=${deslocamento}` : ''}`,
       {},
       context(c),
     );
@@ -153,6 +183,49 @@ export const clinicalApi = {
     return api<ClinicalDocumentWrite>('/documentos-clinicos', json({
       tipo: 'LAUDO', cliente_id: identificar(pacienteId), conteudo,
     }), context(c));
+  },
+
+  /**
+   * Retorna PDF binário sob a sessão e escopo atuais, sem passar token ou
+   * dados clínicos na URL. O backend revalida vínculo e audita a exportação.
+   */
+  async pdfLaudo(c: ClinicalContext, documentoId: string, versao: number): Promise<Blob> {
+    if (!Number.isInteger(versao) || versao < 1 || versao > 999999) {
+      throw new Error('Versão do laudo inválida.');
+    }
+    const contexto = context(c);
+    const url = '/api/v1/documentos-clinicos/' + identificar(documentoId) +
+      '/pdf?versao=' + versao;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/pdf',
+          'x-organizacao-id': contexto.organizacaoId,
+          'x-area-negocio-id': contexto.areaId,
+        },
+      });
+    } catch {
+      throw new ApiError('Não foi possível conectar ao servidor para gerar o PDF.', 0);
+    }
+    if (!response.ok) {
+      const erro = await response.json().catch(() => null) as
+        { mensagem?: string; codigo?: string } | null;
+      throw new ApiError(
+        erro?.mensagem || 'Não foi possível gerar o laudo em PDF.',
+        response.status, erro?.codigo,
+      );
+    }
+    if (!response.headers.get('content-type')?.includes('application/pdf')) {
+      throw new ApiError('Resposta de PDF inválida.', 502, 'PDF_INVALIDO');
+    }
+    const arquivo = await response.blob();
+    if (!arquivo.size || arquivo.size > 10_000_000) {
+      throw new ApiError('O PDF retornado está vazio ou excede o tamanho permitido.', 502, 'PDF_INVALIDO');
+    }
+    return arquivo;
   },
 
   revisarDocumento(
@@ -194,7 +267,11 @@ export const clinicalApi = {
     if (dataHoraSessao.slice(0, 10) !== dados.data_sessao) {
       throw new Error('A data e a hora da sessão não correspondem ao formulário.');
     }
-    const { evolucao_clinica, objetivo_sessao, avaliacao_previa, procedimentos_realizados, exercicios_parametros, resposta_paciente, orientacoes, plano_proxima_sessao } = dados;
+    const {
+      evolucao_clinica, objetivo_sessao, avaliacao_previa, procedimentos_realizados,
+      exercicios_parametros, resposta_paciente, orientacoes, plano_proxima_sessao,
+      diagnostico_fisioterapeutico, prognostico, plano_terapeutico, observacoes,
+    } = dados;
     // A autoria e checada no servidor contra o usuario autenticado.
     // Nenhum campo estruturado da sessao e descartado.
     return api<ClinicalSessionDetail>('/sessoes-clinicas', json({
@@ -209,6 +286,10 @@ export const clinicalApi = {
       resposta_paciente,
       ...(orientacoes ? { orientacoes } : {}),
       ...(plano_proxima_sessao ? { plano_proxima_sessao } : {}),
+      ...(diagnostico_fisioterapeutico ? { diagnostico_fisioterapeutico } : {}),
+      ...(prognostico ? { prognostico } : {}),
+      ...(plano_terapeutico ? { plano_terapeutico } : {}),
+      ...(observacoes ? { observacoes } : {}),
     }), context(c));
   },
 

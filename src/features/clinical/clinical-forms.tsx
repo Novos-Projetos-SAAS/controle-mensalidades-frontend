@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,19 +33,21 @@ function Field({
 
 const areaClasse = 'select-field min-h-28 py-3';
 
-function AvisoRascunho({ demo = false }: { demo?: boolean }) {
+function AvisoRascunho({ demo = false, clinical = false }: { demo?: boolean; clinical?: boolean }) {
   return (
     <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       {demo
-        ? 'MODO TREINAMENTO: somente pacientes fictícios. Os dados ficam na memória desta página e serão perdidos ao recarregar. Não é um prontuário real, nem gera assinatura.'
-        : 'Prévia de formulário clínico: os dados preenchidos aqui não são salvos. A publicação e a assinatura só serão habilitadas após a homologação do acesso profissional.'}
+        ? 'MODO TREINAMENTO: somente pacientes fictícios. Nenhuma assinatura ou laudo oficial é gerado.'
+        : clinical
+          ? 'MODO HOMOLOGAÇÃO: o formulário só será enviado a uma API clínica autenticada e autorizada. Não usar pacientes reais nesta etapa. Nenhuma assinatura é emitida.'
+          : 'Prévia de formulário clínico: os dados preenchidos aqui não são salvos. A publicação e a assinatura só serão habilitadas após a homologação do acesso profissional.'}
     </p>
   );
 }
 
 export function AnamneseForm({
-  onValidated, initialValues, demo = false,
-}: { onValidated: (dados: AnamneseDraft) => void; initialValues?: Partial<AnamneseDraft>; demo?: boolean }) {
+  onValidated, initialValues, demo = false, clinical = false,
+}: { onValidated: (dados: AnamneseDraft) => void; initialValues?: Partial<AnamneseDraft>; demo?: boolean; clinical?: boolean }) {
   const form = useForm<z.input<typeof anamneseSchema>, unknown, AnamneseDraft>({
     resolver: zodResolver(anamneseSchema),
     defaultValues: {
@@ -63,7 +65,7 @@ export function AnamneseForm({
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Histórico e avaliação inicial</h2>
-      <AvisoRascunho demo={demo} />
+      <AvisoRascunho demo={demo} clinical={clinical} />
       <Field label="Queixa principal *" error={erros.queixa_principal?.message}>
         <textarea {...form.register('queixa_principal')} className={areaClasse} />
       </Field>
@@ -85,14 +87,21 @@ export function AnamneseForm({
       <Field label="Avaliação inicial do fisioterapeuta *" error={erros.avaliacao_inicial?.message}>
         <textarea {...form.register('avaliacao_inicial')} className={areaClasse} />
       </Field>
-      <Button type="submit">{demo ? 'Salvar anamnese fictícia' : 'Validar rascunho de anamnese'}</Button>
+      <Button type="submit">{demo ? 'Salvar anamnese fictícia' : clinical ? 'Salvar anamnese na homologação' : 'Validar rascunho de anamnese'}</Button>
     </form>
   );
 }
 
 export function EvolucaoForm({
-  onValidated, initialValues, demo = false,
-}: { onValidated: (dados: EvolucaoDraft) => void; initialValues?: Partial<EvolucaoDraft>; demo?: boolean }) {
+  onValidated, initialValues, demo = false, clinical = false, dataHoraSessao,
+}: {
+  onValidated: (dados: EvolucaoDraft) => void;
+  initialValues?: Partial<EvolucaoDraft>;
+  demo?: boolean;
+  clinical?: boolean;
+  /** Na API autenticada, data vem do único campo de data/hora do atendimento. */
+  dataHoraSessao?: string;
+}) {
   const form = useForm<z.input<typeof evolucaoSchema>, unknown, EvolucaoDraft>({
     resolver: zodResolver(evolucaoSchema),
     defaultValues: {
@@ -105,17 +114,39 @@ export function EvolucaoForm({
       evolucao_clinica: '',
       orientacoes: '',
       plano_proxima_sessao: '',
+      diagnostico_fisioterapeutico: '',
+      prognostico: '',
+      plano_terapeutico: '',
+      observacoes: '',
       ...initialValues,
     },
   });
   const erros = form.formState.errors;
+  const { setValue } = form;
+  const dataClinica = dataHoraSessao?.slice(0, 10) ?? '';
+  useEffect(() => {
+    if (clinical) {
+      setValue('data_sessao', dataClinica, { shouldValidate: true });
+    }
+  }, [clinical, dataClinica, setValue]);
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Evolução da sessão</h2>
-      <AvisoRascunho demo={demo} />
-      <Field label="Data da sessão *" error={erros.data_sessao?.message}>
-        <Input type="date" {...form.register('data_sessao')} />
-      </Field>
+      <AvisoRascunho demo={demo} clinical={clinical} />
+      {clinical ? (
+        <>
+          <input type="hidden" {...form.register('data_sessao')} />
+          {erros.data_sessao?.message && (
+            <p role="alert" className="text-sm text-red-700">
+              Informe a data e hora do atendimento acima para continuar.
+            </p>
+          )}
+        </>
+      ) : (
+        <Field label="Data da sessão *" error={erros.data_sessao?.message}>
+          <Input type="date" {...form.register('data_sessao')} />
+        </Field>
+      )}
       <Field label="Objetivo da sessão *" error={erros.objetivo_sessao?.message}>
         <textarea {...form.register('objetivo_sessao')} className={areaClasse} />
       </Field>
@@ -141,14 +172,30 @@ export function EvolucaoForm({
       <Field label="Conduta planejada para próxima sessão">
         <textarea {...form.register('plano_proxima_sessao')} className={areaClasse} />
       </Field>
-      <Button type="submit">{demo ? 'Salvar evolução fictícia' : 'Validar rascunho da evolução'}</Button>
+      <div className="border-t border-slate-200 pt-3">
+        <h3 className="text-base font-semibold">Avaliação e planejamento terapêutico complementar</h3>
+        <p className="mt-1 text-sm text-slate-600">Preencha conforme a avaliação profissional. Estes campos são opcionais.</p>
+      </div>
+      <Field label="Diagnóstico fisioterapêutico">
+        <textarea {...form.register('diagnostico_fisioterapeutico')} className={areaClasse} />
+      </Field>
+      <Field label="Prognóstico fisioterapêutico">
+        <textarea {...form.register('prognostico')} className={areaClasse} />
+      </Field>
+      <Field label="Plano terapêutico">
+        <textarea {...form.register('plano_terapeutico')} className={areaClasse} />
+      </Field>
+      <Field label="Observações clínicas">
+        <textarea {...form.register('observacoes')} className={areaClasse} />
+      </Field>
+      <Button type="submit">{demo ? 'Salvar evolução fictícia' : clinical ? 'Salvar evolução na homologação' : 'Validar rascunho da evolução'}</Button>
     </form>
   );
 }
 
 export function LaudoForm({
-  onValidated, initialValues, demo = false,
-}: { onValidated: (dados: LaudoDraft) => void; initialValues?: Partial<LaudoDraft>; demo?: boolean }) {
+  onValidated, initialValues, demo = false, clinical = false,
+}: { onValidated: (dados: LaudoDraft) => void; initialValues?: Partial<LaudoDraft>; demo?: boolean; clinical?: boolean }) {
   const form = useForm<z.input<typeof laudoSchema>, unknown, LaudoDraft>({
     resolver: zodResolver(laudoSchema),
     defaultValues: {
@@ -165,7 +212,7 @@ export function LaudoForm({
   return (
     <form onSubmit={form.handleSubmit(onValidated)} className="space-y-4" noValidate>
       <h2 className="text-xl font-semibold">Laudo fisioterapêutico</h2>
-      <AvisoRascunho demo={demo} />
+      <AvisoRascunho demo={demo} clinical={clinical} />
       <p className="text-sm text-slate-600">
         O conteúdo técnico e a conclusão devem ser elaborados e revisados pelo profissional
         responsável. Este formulário não emite documento assinado.
@@ -188,7 +235,7 @@ export function LaudoForm({
       <Field label="Recomendações">
         <textarea {...form.register('recomendacoes')} className={areaClasse} />
       </Field>
-      <Button type="submit">{demo ? 'Salvar laudo fictício' : 'Validar rascunho de laudo'}</Button>
+      <Button type="submit">{demo ? 'Salvar laudo fictício' : clinical ? 'Salvar rascunho de laudo na homologação' : 'Validar rascunho de laudo'}</Button>
     </form>
   );
 }
