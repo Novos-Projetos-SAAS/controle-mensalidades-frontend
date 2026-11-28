@@ -136,7 +136,7 @@ export function ClinicalDemo({ modo = 'servidor-local' }: {
         let novoId: string | null = null;
         let proximo: EstadoDemo;
         if (acao === 'criar') {
-          novoId = `simulado-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          novoId = `simulado-${revisao + 1}`;
           proximo = novaEntrada(
             estado, comando.pacienteId as string, comando.tipo as TipoRegistro,
             comando.dados as DadosClinicos, novoId, agora,
