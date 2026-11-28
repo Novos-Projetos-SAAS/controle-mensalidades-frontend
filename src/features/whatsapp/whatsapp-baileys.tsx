@@ -14,6 +14,9 @@ type Estado = {
   salvo: boolean;
   ultimoTeste: string | null;
   destinatarioTeste: string | null;
+  modo: 'DEMO' | 'ROTINA' | null;
+  testado: boolean;
+  rotinaAtiva: boolean;
 };
 const caminho = '/whatsapp/baileys';
 const statusLabel: Record<Estado['status'], string> = {
@@ -65,7 +68,7 @@ export function WhatsappBaileys({ context }: { context: WhatsappContext }) {
         if (operacao === 'sessao') setAviso('Sessão apagada. Remova também o aparelho conectado no WhatsApp.');
       }
     } catch (error) {
-      setFalha(queryError(error));
+      setFalha(error instanceof Error ? queryError(error) : 'Não foi possível concluir a operação.');
     } finally {
       await query.refetch();
       setOcupado(false);
@@ -84,7 +87,7 @@ export function WhatsappBaileys({ context }: { context: WhatsappContext }) {
       </div>
       <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
         Integração extraoficial com risco de bloqueio. Use somente um número exclusivo de teste.
-        As cobranças automáticas ainda não estão habilitadas.
+        As cobranças automáticas são limitadas ao destinatário de demonstração com consentimento.
       </p>
       {query.isError && <p role="alert" className="text-sm text-red-700">{queryError(query.error)}</p>}
       {estado && !estado.habilitado && <p className="text-sm text-slate-600">Demonstração não habilitada para esta área.</p>}
@@ -92,7 +95,7 @@ export function WhatsappBaileys({ context }: { context: WhatsappContext }) {
         <>
           <div className="rounded-xl border border-slate-200 p-4">
             <p className="text-sm font-medium">{estado.salvo ? 'Sessão salva de forma criptografada' : 'Nenhuma sessão salva'}</p>
-            <p className="mt-1 text-sm text-slate-600">A conexão de demonstração encerra automaticamente após três minutos. O servidor pode hibernar normalmente.</p>
+            <p className="mt-1 text-sm text-slate-600">A conexão de demonstração dura no máximo três minutos. O servidor pode hibernar normalmente.</p>
             {estado.status === 'QR_CODE' && estado.qr && (
               <div className="mt-4 flex flex-col items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -104,20 +107,25 @@ export function WhatsappBaileys({ context }: { context: WhatsappContext }) {
               <Button disabled={ocupado || ativo} onClick={() => void acao('conectar')}>
                 {estado.salvo ? 'Reconectar WhatsApp' : 'Conectar WhatsApp'}
               </Button>
-              <Button variant="outline" disabled={ocupado || !ativo} onClick={() => void acao('parar')}>Encerrar conexão</Button>
+              <Button variant="outline" disabled={ocupado || !ativo || estado.modo === 'ROTINA'} onClick={() => void acao('parar')}>Encerrar conexão</Button>
               <Button variant="outline" disabled={ocupado || ativo || !estado.salvo} onClick={() => {
                 if (window.confirm('Apagar sessão salva? Remova o aparelho também no WhatsApp.')) void acao('sessao');
               }}>Apagar sessão</Button>
             </div>
           </div>
+          <div className="rounded-xl border border-slate-200 p-4 text-sm">
+            <h3 className="font-semibold">Rotina de cobranças</h3>
+            <p className="mt-2">{estado.rotinaAtiva ? 'Habilitada no backend (somente demonstração)' : 'Desabilitada'}</p>
+            <p className="mt-1 text-slate-600">Janela de envio: 09h às 19h, horário de Brasília. Agendador externo previsto para 09h, 12h, 15h e 18h. Sem conexão contínua.</p>
+          </div>
           <div className="space-y-3 rounded-xl border border-slate-200 p-4">
             <h3 className="font-semibold">Mensagem de teste</h3>
             <p className="text-sm">Destinatário autorizado: {estado.destinatarioTeste ?? 'Não configurado'}</p>
             <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" checked={confirmado} onChange={(e) => setConfirmado(e.target.checked)} disabled={ocupado || testado} />
+              <input type="checkbox" checked={confirmado} onChange={(e) => setConfirmado(e.target.checked)} disabled={ocupado || testado || estado.testado || estado.modo !== 'DEMO'} />
               Confirmo que controlo o número destinatário e autorizo uma única mensagem de demonstração.
             </label>
-            <Button disabled={ocupado || testado || !confirmado || !estado.destinatarioTeste || estado.status !== 'CONECTADO'} onClick={() => void acao('testar')}>
+            <Button disabled={ocupado || testado || estado.testado || estado.modo !== 'DEMO' || !confirmado || !estado.destinatarioTeste || estado.status !== 'CONECTADO'} onClick={() => void acao('testar')}>
               Enviar mensagem de teste
             </Button>
             {estado.ultimoTeste && <p className="text-sm text-slate-600">Último teste: {estado.ultimoTeste === 'SUBMETIDO' ? 'Submetido (entrega não confirmada)' : 'Resultado incerto — verifique o celular antes de repetir.'}</p>}
