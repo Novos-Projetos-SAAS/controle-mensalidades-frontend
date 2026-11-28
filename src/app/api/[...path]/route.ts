@@ -26,6 +26,33 @@ async function forward(request: NextRequest, { params }: Context) {
       { status: 400, headers: privateHeaders },
     );
   }
+  // Escritas clínicas exigem origem da própria aplicação antes de encaminhar
+  // o cookie de sessão. Mantém a regra existente de pagamentos públicos.
+  if (
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) &&
+    path[0] === 'v1' &&
+    (
+      ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos'].includes(path[1] ?? '') ||
+      (path[1] === 'profissionais' && path[3] === 'acesso-clinico')
+    )
+  ) {
+    try {
+      const origem = request.headers.get('origin');
+      const host = request.headers.get('host');
+      const site = request.headers.get('sec-fetch-site');
+      if (
+        !origem || !host || new URL(origem).host !== host ||
+        (site !== null && site !== 'same-origin' && site !== 'none')
+      ) {
+        throw new Error('Origem não permitida');
+      }
+    } catch {
+      return Response.json(
+        { mensagem: 'Requisição clínica não autorizada.', codigo: 'ORIGEM_NAO_AUTORIZADA' },
+        { status: 403, headers: privateHeaders },
+      );
+    }
+  }
   const base =
     process.env.BACKEND_URL ||
     (process.env.NODE_ENV === 'development' ? 'http://localhost:3333' : null);
@@ -78,7 +105,7 @@ async function forward(request: NextRequest, { params }: Context) {
       signal: request.signal,
     });
     const responseHeaders = new Headers(privateHeaders);
-    for (const name of ['content-type', 'set-cookie', 'x-request-id', 'location']) {
+    for (const name of ['content-type', 'content-disposition', 'x-content-type-options', 'set-cookie', 'x-request-id', 'location']) {
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
