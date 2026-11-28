@@ -35,7 +35,7 @@ const links = [
         { href: '/prontuario-vinculos', label: 'Vínculos clínicos', icon: ShieldCheck },
         { href: '/prontuario-demo', label: 'Prontuário (treinamento)', icon: ClipboardPlus },
       ]
-    : []),
+    : [{ href: '/prontuario', label: 'Prontuário (prévia)', icon: ClipboardPlus }]),
   { href: '/financeiro', label: 'Financeiro', icon: WalletCards },
   { href: '/configuracoes/whatsapp', label: 'WhatsApp Business', icon: MessageCircle },
   { href: '/configuracoes/organizacoes', label: 'Organizações e áreas', icon: Building2 },

@@ -146,3 +146,53 @@ describe('tela de treinamento da fisioterapeuta', () => {
     expect(documento?.textContent).toContain('NÃO É DOCUMENTO ASSINADO');
   });
 });
+
+
+describe('prévia pública de prontuário com dados apenas fictícios', () => {
+  it('mostra o fluxo completo no navegador sem acessar nenhuma API clínica ou de simulação', async () => {
+    const mockFetch = vi.mocked(global.fetch);
+    const view = render(<ClinicalDemo modo="previa-temporaria" />);
+    expect(screen.getByText('Prontuário do paciente')).toBeTruthy();
+    expect(screen.getByText(/As alterações ficam apenas na memória desta aba/)).toBeTruthy();
+    expect(screen.getAllByText('Paciente Exemplo A').length).toBeGreaterThan(0);
+    expect(screen.getByText('Evolução e conduta da sessão · v1')).toBeTruthy();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Novo laudo' }));
+    for (const [label, value] of [
+      ['Finalidade do laudo *', 'Demonstração do fluxo de avaliação'],
+      ['Fundamentação e avaliação *', 'Avaliação simulada'],
+      ['Achados funcionais *', 'Achados simulados'],
+      ['Diagnóstico fisioterapêutico *', 'Diagnóstico inteiramente fictício'],
+      ['Conclusão profissional *', 'Conclusão temporária'],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar laudo fictício' }));
+    expect(await screen.findByText('Laudo fisioterapêutico (simulado) · v1')).toBeTruthy();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    // Remontar equivale a atualizar a página: nenhum prontuário é persistido.
+    view.unmount();
+    render(<ClinicalDemo modo="previa-temporaria" />);
+    expect(screen.queryByText('Laudo fisioterapêutico (simulado) · v1')).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('permite corrigir evolução e preservar versões só até a aba ser fechada', async () => {
+    render(<ClinicalDemo modo="previa-temporaria" />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Consultar registro' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Corrigir registro' }));
+    fireEvent.change(screen.getByLabelText('Motivo da revisão'), {
+      target: { value: 'Ajuste fictício para revisão da interface' },
+    });
+    fireEvent.change(screen.getByLabelText('O que foi trabalhado na sessão *'), {
+      target: { value: 'Movimentos de treinamento da prévia' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar evolução fictícia' }));
+    await screen.findByText('Evolução e conduta da sessão · v2');
+    fireEvent.click(screen.getByRole('button', { name: 'Versão 1' }));
+    expect(screen.getByText('Treino de marcha, mobilidade e exercícios funcionais (dados fictícios).')).toBeTruthy();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

@@ -47,6 +47,48 @@ test('protege páginas privadas e rejeita login inválido', async ({ page }) => 
   await expect(page).toHaveURL('/login');
 });
 
+test('prontuário aparece no sistema publicado como prévia fictícia sem chamadas clínicas', async ({ page }) => {
+  await page.goto('/prontuario');
+  await expect(page).toHaveURL('/login');
+  await signIn(page);
+
+  const chamadasClinicas: string[] = [];
+  page.on('request', (pedido) => {
+    const caminho = new URL(pedido.url()).pathname;
+    if (
+      caminho.startsWith('/api/prontuario-demo') ||
+      ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos']
+        .some((segmento) => caminho.startsWith('/api/v1/' + segmento))
+    ) {
+      chamadasClinicas.push(pedido.url());
+    }
+  });
+
+  await page.getByRole('link', { name: 'Prontuário (prévia)' }).click();
+  await expect(page.getByRole('heading', { name: 'Prontuário do paciente' })).toBeVisible();
+  await expect(page.getByText('SIMULAÇÃO — não inserir dados de pacientes reais')).toBeVisible();
+  await expect(page.getByText('Paciente Exemplo A', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Novo laudo' }).click();
+
+  for (const [campo, valor] of [
+    ['Finalidade do laudo *', 'Prévia do sistema'],
+    ['Fundamentação e avaliação *', 'Somente dados artificiais de demonstração'],
+    ['Achados funcionais *', 'Achados sintéticos'],
+    ['Diagnóstico fisioterapêutico *', 'Diagnóstico fictício'],
+    ['Conclusão profissional *', 'Sem validade de documento'],
+  ]) {
+    await page.getByLabel(campo).fill(valor);
+  }
+  await page.getByRole('button', { name: 'Salvar laudo fictício' }).click();
+  await expect(page.getByText('Laudo fisioterapêutico (simulado) · v1')).toBeVisible();
+  expect(chamadasClinicas).toEqual([]);
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Prontuário do paciente' })).toBeVisible();
+  await expect(page.getByText('Laudo fisioterapêutico (simulado) · v1')).toHaveCount(0);
+  expect(chamadasClinicas).toEqual([]);
+});
+
 test('login, sessão, áreas, módulos, clientes e isolamento entre contextos', async ({ page }) => {
   await signIn(page);
   const me = await page.request.get('/api/v1/auth/me');

@@ -14,8 +14,8 @@ import {
 } from './clinical-forms';
 import {
   FISIOTERAPEUTA_DEMO, PACIENTES_DEMO, estadoInicialDemo,
-  ultimaVersao, resumoPaciente,
-  type DadosClinicos, type RegistroDemo, type TipoRegistro,
+  finalizarEntrada, novaEntrada, revisarEntrada, ultimaVersao, resumoPaciente,
+  type DadosClinicos, type EstadoDemo, type RegistroDemo, type TipoRegistro,
 } from './clinical-demo-domain';
 import {
   type AnamneseDraft, type EvolucaoDraft, type LaudoDraft,
@@ -62,11 +62,16 @@ function dataHora(value: string): string {
   }).format(new Date(value));
 }
 
-export function ClinicalDemo() {
+export function ClinicalDemo({ modo = 'servidor-local' }: {
+  modo?: 'servidor-local' | 'previa-temporaria';
+}) {
+  // Na prévia publicada, todo estado fica exclusivamente na memória da aba.
+  // Jamais chama /api/prontuario-demo, APIs clínicas, Neon ou armazenamento local.
+  const previaTemporaria = modo === 'previa-temporaria';
   const [estado, setEstado] = useState(estadoInicialDemo);
   const [revisao, setRevisao] = useState(0);
-  const [carregando, setCarregando] = useState(true);
-  const [pronto, setPronto] = useState(false);
+  const [carregando, setCarregando] = useState(!previaTemporaria);
+  const [pronto, setPronto] = useState(previaTemporaria);
   const [gravando, setGravando] = useState(false);
   const trava = useRef(false);
   const [pacienteId, setPacienteId] = useState(PACIENTES_DEMO[0]!.id);
@@ -80,8 +85,9 @@ export function ClinicalDemo() {
   const [erro, setErro] = useState('');
   const [formularioSerial, setFormularioSerial] = useState(0);
 
-  // Fonte de verdade: arquivo no servidor local, não o estado do navegador.
+  // A persistência em arquivo só existe no modo antigo de desenvolvimento local.
   async function carregar() {
+    if (previaTemporaria) return;
     const resposta = await fetch('/api/prontuario-demo', {
       cache: 'no-store', credentials: 'same-origin',
     });
@@ -93,6 +99,7 @@ export function ClinicalDemo() {
   }
 
   useEffect(() => {
+    if (previaTemporaria) return;
     let ativo = true;
     fetch('/api/prontuario-demo', { cache: 'no-store', credentials: 'same-origin' })
       .then(async (resposta) => {
@@ -110,7 +117,7 @@ export function ClinicalDemo() {
       })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [previaTemporaria]);
 
   async function executar(comando: Record<string, unknown>) {
     if (!pronto || trava.current) return null;
@@ -119,6 +126,45 @@ export function ClinicalDemo() {
     setErro('');
     setMensagem('');
     try {
+      if (previaTemporaria) {
+        // Nenhum dado é persistido ou enviado à rede; a prévia usa pacientes
+        // 100% sintéticos e é reiniciada a cada recarregamento.
+        const acao = comando.acao;
+        const registroId = typeof comando.registroId === 'string' ? comando.registroId : null;
+        const registro = registroId ? estado.registros.find((item) => item.id === registroId) : null;
+        const agora = new Date().toISOString();
+        let novoId: string | null = null;
+        let proximo: EstadoDemo;
+        if (acao === 'criar') {
+          novoId = `simulado-${revisao + 1}`;
+          proximo = novaEntrada(
+            estado, comando.pacienteId as string, comando.tipo as TipoRegistro,
+            comando.dados as DadosClinicos, novoId, agora,
+          );
+        } else if (acao === 'revisar' && registro && registroId) {
+          if (ultimaVersao(registro).numero !== comando.versaoEsperada) {
+            throw new Error('Este registro fictício mudou de versão. Atualize a prévia.');
+          }
+          novoId = registroId;
+          proximo = revisarEntrada(
+            estado, registroId, comando.dados as DadosClinicos,
+            comando.justificativa as string, agora,
+          );
+        } else if (acao === 'finalizar' && registro && registroId) {
+          if (ultimaVersao(registro).numero !== comando.versaoEsperada) {
+            throw new Error('Este registro fictício mudou de versão. Atualize a prévia.');
+          }
+          novoId = registroId;
+          proximo = finalizarEntrada(estado, registroId, agora);
+        } else if (acao === 'reiniciar') {
+          proximo = estadoInicialDemo();
+        } else {
+          throw new Error('Operação de prévia indisponível.');
+        }
+        setEstado(proximo);
+        setRevisao((atual) => atual + 1);
+        return { estado: proximo, revisao: revisao + 1, registroId: novoId };
+      }
       const resposta = await fetch('/api/prontuario-demo', {
         method: 'POST',
         credentials: 'same-origin',
@@ -191,9 +237,11 @@ export function ClinicalDemo() {
     setVersaoSelecionada(null);
     setFormulario(null);
     setEditarId(null);
-    setMensagem(registro
-      ? 'Correção ou adendo salvo no servidor local. Versões anteriores preservadas.'
-      : 'Registro fictício salvo no servidor local. Pode atualizar a página.');
+    setMensagem(previaTemporaria
+      ? 'Registro fictício atualizado nesta prévia. Ao recarregar a página, as alterações desaparecem.'
+      : registro
+        ? 'Correção ou adendo salvo no servidor local. Versões anteriores preservadas.'
+        : 'Registro fictício salvo no servidor local. Pode atualizar a página.');
   }
 
   async function finalizar() {
@@ -204,7 +252,9 @@ export function ClinicalDemo() {
     });
     if (!retorno) return;
     setVersaoSelecionada(null);
-    setMensagem('Finalização fictícia persistida no servidor, sem assinatura profissional.');
+    setMensagem(previaTemporaria
+      ? 'Finalização simulada somente nesta aba, sem assinatura ou persistência.'
+      : 'Finalização fictícia persistida no servidor, sem assinatura profissional.');
   }
 
   function selecionarPaciente(id: string) {
@@ -218,11 +268,15 @@ export function ClinicalDemo() {
   }
 
   async function limparDemo() {
-    if (!window.confirm('Reiniciar todos os registros fictícios salvos neste servidor?')) return;
+    if (!window.confirm(previaTemporaria
+      ? 'Reiniciar os registros fictícios temporários desta prévia?'
+      : 'Reiniciar todos os registros fictícios salvos neste servidor?')) return;
     const retorno = await executar({ acao: 'reiniciar' });
     if (!retorno) return;
     selecionarPaciente(PACIENTES_DEMO[0]!.id);
-    setMensagem('Treinamento reiniciado e salvo no servidor local.');
+    setMensagem(previaTemporaria
+      ? 'Prévia reiniciada nesta aba.'
+      : 'Treinamento reiniciado e salvo no servidor local.');
   }
 
   if (carregando) {
@@ -250,7 +304,7 @@ export function ClinicalDemo() {
             <h1 className="display text-3xl font-bold sm:text-4xl">Prontuário do paciente</h1>
           </div>
         </div>
-        <Link href="/login" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-teal-800 hover:underline">
+        <Link href={previaTemporaria ? '/' : '/login'} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-teal-800 hover:underline">
           <ArrowLeft size={17} aria-hidden /> Voltar ao sistema
         </Link>
       </div>
@@ -262,10 +316,9 @@ export function ClinicalDemo() {
           <div>
             <strong className="block">SIMULAÇÃO — não inserir dados de pacientes reais</strong>
             <p className="mt-1">
-              Simulação sem dados reais, sem banco clínico, sem assinatura ou validade profissional.
-              Os registros fictícios são salvos no disco do servidor Next.js de desenvolvimento,
-              inclusive após recarregar ou abrir outro navegador no mesmo servidor.
-              Não é o prontuário clínico definitivo. Nunca preencha dados reais.
+              {previaTemporaria
+                ? 'Prévia interativa com pacientes inteiramente fictícios, sem acesso ao banco clínico. As alterações ficam apenas na memória desta aba e desaparecem ao atualizar ou sair. Não há assinatura nem validade profissional. Nunca preencha dados reais.'
+                : 'Simulação sem dados reais, sem banco clínico, sem assinatura ou validade profissional. Os registros fictícios são salvos no disco do servidor Next.js de desenvolvimento, inclusive após recarregar ou abrir outro navegador no mesmo servidor. Não é o prontuário clínico definitivo. Nunca preencha dados reais.'}
             </p>
           </div>
         </div>
@@ -340,7 +393,7 @@ export function ClinicalDemo() {
             </div>
           </section>
 
-          {gravando && <p role="status" className="text-sm text-teal-800">Salvando no servidor local…</p>}
+          {gravando && <p role="status" className="text-sm text-teal-800">{previaTemporaria ? 'Atualizando prévia temporária…' : 'Salvando no servidor local…'}</p>}
           {mensagem && <div role="status" className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">{mensagem}</div>}
           {erro && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{erro}</div>}
 
