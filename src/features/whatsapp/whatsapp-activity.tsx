@@ -86,7 +86,7 @@ export function ReminderCalendar() {
         <li>Cobranças ficam suspensas quando o estado financeiro é incerto.</li>
       </ul>
       <p className="text-sm text-slate-600">
-        Os prazos são informativos. Os envios reais estão desativados nesta etapa.
+        Os envios dependem da configuração do provedor e do agendador. A Baileys está restrita à demonstração.
       </p>
     </section>
   );
@@ -249,6 +249,11 @@ function ActivityRow({ item }: { item: Task | Message }) {
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium">
           {statuses[item.status] ?? item.status}
         </span>
+        {message?.modo_processamento === 'BAILEYS' && (
+          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-900">
+            Baileys — demonstração
+          </span>
+        )}
         {message?.modo_processamento === 'SIMULADO' && (
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-950">
             Simulação
