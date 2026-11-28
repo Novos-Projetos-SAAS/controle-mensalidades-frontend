@@ -54,7 +54,12 @@ test('prontuário aparece no sistema publicado como prévia fictícia sem chamad
 
   const chamadasClinicas: string[] = [];
   page.on('request', (pedido) => {
-    if (/\\/api\\/(?:prontuario-demo|v1\\/(?:prontuario|documentos-clinicos|sessoes-clinicas|vinculos-clinicos))/.test(new URL(pedido.url()).pathname)) {
+    const caminho = new URL(pedido.url()).pathname;
+    if (
+      caminho.startsWith('/api/prontuario-demo') ||
+      ['prontuario', 'documentos-clinicos', 'sessoes-clinicas', 'vinculos-clinicos']
+        .some((segmento) => caminho.startsWith('/api/v1/' + segmento))
+    ) {
       chamadasClinicas.push(pedido.url());
     }
   });
