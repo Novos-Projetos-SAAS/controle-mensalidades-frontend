@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/features/auth/session';
 import { ReminderCalendar, WhatsappActivity, WhatsappTemplates } from './whatsapp-activity';
 import { WhatsappConnection } from './whatsapp-connection';
+import { WhatsappBaileys } from './whatsapp-baileys';
 
 const sections = [
   'Conexão',
+  'Conexão Baileys',
   'Modelos de mensagem',
   'Lembretes automáticos',
   'Histórico de mensagens',
@@ -73,6 +75,9 @@ function WhatsappContent({
       <div id="whatsapp-section" className="space-y-4">
         {section === 'Conexão' ? (
           <WhatsappConnection orgId={orgId} areaId={areaId} areaName={areaName} />
+        ) : section === 'Conexão Baileys' ? (
+          context ? <WhatsappBaileys key={orgId + ':' + areaId} context={context} /> :
+          <EmptyState title="Selecione uma área" description="Escolha uma área ativa para conectar o WhatsApp." />
         ) : (
           <>
             {section === 'Lembretes automáticos' && <ReminderCalendar />}
