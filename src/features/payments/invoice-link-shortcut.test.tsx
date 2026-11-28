@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useFinanceQuery, type Mensalidade } from '@/features/finance/finance-api';
-import { InvoiceLinkShortcut } from './invoice-link-shortcut';
+import { InvoiceLinkBadge, InvoiceLinkShortcut } from './invoice-link-shortcut';
 
 vi.mock('@/features/finance/finance-api', () => ({ useFinanceQuery: vi.fn() }));
 
@@ -40,9 +40,16 @@ describe('atalho do link na lista de mensalidades', () => {
       configurable: true,
       value: { writeText },
     });
-    render(<InvoiceLinkShortcut context={context} invoice={invoice} />);
+    render(
+      <>
+        <InvoiceLinkBadge context={context} invoice={invoice} />
+        <InvoiceLinkShortcut context={context} invoice={invoice} />
+      </>,
+    );
 
     expect(screen.getByText('Link gerado')).toBeTruthy();
+    expect(screen.getByLabelText('Link de pagamento existente').textContent)
+      .not.toContain('Link gerado');
     fireEvent.click(screen.getByRole('button', { name: 'Copiar link' }));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(
@@ -59,7 +66,12 @@ describe('atalho do link na lista de mensalidades', () => {
       { ...active, url_plataforma: '//evil.example/pagamento/roubo' },
     ]) {
       query(charge);
-      const view = render(<InvoiceLinkShortcut context={context} invoice={invoice} />);
+      const view = render(
+        <>
+          <InvoiceLinkBadge context={context} invoice={invoice} />
+          <InvoiceLinkShortcut context={context} invoice={invoice} />
+        </>,
+      );
       expect(screen.queryByRole('button', { name: 'Copiar link' })).toBeNull();
       expect(screen.queryByText('Link gerado')).toBeNull();
       view.unmount();
@@ -69,12 +81,19 @@ describe('atalho do link na lista de mensalidades', () => {
   it('não consulta nem compartilha cobrança de mensalidade quitada', () => {
     query(active);
     render(
-      <InvoiceLinkShortcut
-        context={context}
-        invoice={{ ...invoice, status: 'PAGA', saldo: '0.00' }}
-      />,
+      <>
+        <InvoiceLinkBadge
+          context={context}
+          invoice={{ ...invoice, status: 'PAGA', saldo: '0.00' }}
+        />
+        <InvoiceLinkShortcut
+          context={context}
+          invoice={{ ...invoice, status: 'PAGA', saldo: '0.00' }}
+        />
+      </>,
     );
     expect(vi.mocked(useFinanceQuery).mock.calls[0]?.[3]).toBe(false);
     expect(screen.queryByRole('button', { name: 'Copiar link' })).toBeNull();
+    expect(screen.queryByText('Link gerado')).toBeNull();
   });
 });
