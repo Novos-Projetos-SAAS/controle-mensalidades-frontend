@@ -36,7 +36,7 @@ export function CopyPaymentLinkButton({
         {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
         {copied ? 'Link copiado' : label}
       </Button>
-      {/* {copied && <p role="status" className="mt-1 text-xs text-teal-800">Link copiado para compartilhar.</p>} */}
+      {copied && <p role="status" className="mt-1 text-xs text-teal-800">Link copiado para compartilhar.</p>}
       {error && (
         <p role="alert" className="mt-1 text-xs text-red-800">
           Não foi possível copiar. Abra o link e copie o endereço.
