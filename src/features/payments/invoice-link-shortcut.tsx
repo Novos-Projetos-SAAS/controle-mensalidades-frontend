@@ -11,13 +11,7 @@ import { CopyPaymentLinkButton } from './copy-payment-link-button';
  * Consulta a cobrança da mensalidade visível: nunca gera checkout por conta própria.
  * A API já limita o retorno ao escopo administrativo da organização e da área.
  */
-export function InvoiceLinkShortcut({
-  context,
-  invoice,
-}: {
-  context: FinanceContext;
-  invoice: Mensalidade;
-}) {
+function useInvoiceLink(context: FinanceContext, invoice: Mensalidade): string | null {
   const payable =
     invoice.status !== 'PAGA' &&
     invoice.status !== 'CANCELADA' &&
@@ -28,15 +22,39 @@ export function InvoiceLinkShortcut({
     (signal) => paymentApi.charge(context, invoice.id, signal),
     payable,
   );
-  const path = availablePaymentPath(query.data, payable);
-  if (!path) return null;
+  return availablePaymentPath(query.data, payable);
+}
 
+/** Indicador visual na coluna esquerda, antes do nome do cliente. */
+export function InvoiceLinkBadge({
+  context,
+  invoice,
+}: {
+  context: FinanceContext;
+  invoice: Mensalidade;
+}) {
+  const path = useInvoiceLink(context, invoice);
+  if (!path) return null;
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 sm:items-end" aria-label="Link de pagamento existente">
-      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">
-        <Link2 size={14} aria-hidden="true" />
-        Link gerado
-      </span>
+    <span className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">
+      <Link2 size={14} aria-hidden="true" />
+      Link gerado
+    </span>
+  );
+}
+
+/** Ação de cópia na coluna direita, imediatamente antes do botão Detalhes. */
+export function InvoiceLinkShortcut({
+  context,
+  invoice,
+}: {
+  context: FinanceContext;
+  invoice: Mensalidade;
+}) {
+  const path = useInvoiceLink(context, invoice);
+  if (!path) return null;
+  return (
+    <div className="min-w-0" aria-label="Link de pagamento existente">
       <CopyPaymentLinkButton path={path} className="w-full whitespace-nowrap sm:w-auto" />
     </div>
   );
